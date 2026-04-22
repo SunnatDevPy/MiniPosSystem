@@ -1,60 +1,60 @@
 # Mini POS Pro
 
-Modern POS system for retail points (fruit/vegetable stores, mini markets, kiosk sales) with:
-- cashier workflow (fast checkout, cart, receipt print)
-- admin workflow (inventory and stock control)
-- daily analytics and popular products
-- bilingual UI (`RU` / `UZ`)
-- installable web app experience (PWA basics)
+Русский | O'zbek | English
 
-## Highlights
+## Contents
 
-- Role-based login screen (`admin` / `cashier`)
-- Cashier mode:
-  - product search by name/SKU
-  - quick-add popular products
-  - discounts and markup per line
-  - return mode (negative quantity)
-  - printable receipt (`window.print`)
-  - shift number tracking
-- Admin mode:
-  - create products
-  - adjust stock
-  - daily report and low stock visibility
-- UI/UX:
-  - dark/light theme switch
-  - tablet-friendly responsive layout
-  - RU/UZ language switch
+- [RU](#ru)
+- [UZ](#uz)
+- [EN](#en)
+- [Screenshots](#screenshots)
 
-## Tech Stack
+---
+
+## RU
+
+Современная POS-система для розничных точек (овощи/фрукты, мини-маркеты, киоски):
+- касса (быстрое оформление, корзина, печать чека)
+- админка (товары и управление остатками)
+- дневная аналитика и популярные товары
+- переключение интерфейса `RU / UZ`
+- режим установки как приложение (PWA)
+
+### Основные возможности
+
+- Вход по ролям: `admin` / `cashier`
+- Режим кассы:
+  - поиск по названию и SKU
+  - быстрые кнопки популярных товаров
+  - скидка и наценка по позиции
+  - возврат (отрицательное количество)
+  - печать чека (`window.print`)
+  - номер смены
+- Режим админа:
+  - добавление товаров
+  - корректировка остатков
+  - дневной отчет
+- UI:
+  - темная/светлая тема
+  - адаптация под планшет
+  - RU/UZ
+
+### Стек
 
 - Backend: `FastAPI` + `SQLAlchemy` + `SQLite`
 - Frontend: `React` + `Vite`
-- Optional: `Docker Compose`
+- Опционально: `Docker Compose`
 
-## Project Structure
+### Демо-доступ
 
-- `backend/app/main.py` - FastAPI app entry
-- `backend/app/api/routes.py` - API routes (products, stock, sales, reports)
-- `backend/app/models/entities.py` - DB models
-- `backend/app/schemas/` - Pydantic schemas
-- `frontend/src/App.jsx` - main POS UI (auth, cashier, admin)
-- `frontend/src/App.css` - themes and responsive styles
-- `frontend/src/api.js` - frontend API client
-- `frontend/public/manifest.webmanifest` - PWA manifest
-- `frontend/public/sw.js` - service worker
+- `admin`: `admin123`
+- `cashier`: `cashier123`
 
-## Demo Access (current defaults)
+> Для production рекомендуется вынести авторизацию в backend (JWT/сессии, хэшированные пароли).
 
-These are local demo credentials in frontend code:
-- `admin` password: `admin123`
-- `cashier` password: `cashier123`
+### Локальный запуск
 
-> Recommended for production: move auth to backend + hashed passwords + JWT/session.
-
-## Run Locally
-
-### 1) Backend
+Backend:
 
 ```bash
 cd backend
@@ -62,10 +62,7 @@ py -3.13 -m pip install -r requirements.txt
 py -3.13 -m uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-Backend URL: `http://localhost:8000`  
-Swagger: `http://localhost:8000/docs`
-
-### 2) Frontend
+Frontend:
 
 ```bash
 cd frontend
@@ -73,50 +70,183 @@ npm install
 npm run dev
 ```
 
-Frontend URL: `http://localhost:5173`
+- Frontend: `http://localhost:5173`
+- Backend: `http://localhost:8000`
+- Swagger: `http://localhost:8000/docs`
 
-## Run with Docker
+### API
+
+- `GET /api/health`
+- `GET /api/products`
+- `POST /api/products`
+- `PATCH /api/products/{product_id}`
+- `POST /api/stock/adjust`
+- `POST /api/sales` (поддерживает `price_override` и отрицательный `qty` для возвратов)
+- `GET /api/reports/daily`
+- `GET /api/reports/popular?limit=8`
+
+---
+
+## UZ
+
+Zamonaviy POS tizimi (meva/sabzavot do'koni, mini-market, kiosklar) uchun:
+- kassa qismi (tez savdo, savat, chek chop etish)
+- admin qismi (mahsulot va qoldiq boshqaruvi)
+- kunlik analitika va ommabop mahsulotlar
+- interfeys `RU / UZ`
+- ilova sifatida o'rnatish (PWA)
+
+### Asosiy imkoniyatlar
+
+- Rollar bo'yicha kirish: `admin` / `cashier`
+- Kassa rejimi:
+  - nomi va SKU bo'yicha qidiruv
+  - ommabop mahsulotlar tez tugmalari
+  - pozitsiya bo'yicha chegirma/ustama
+  - qaytarish (manfiy miqdor)
+  - chek chop etish (`window.print`)
+  - smena raqami
+- Admin rejimi:
+  - mahsulot qo'shish
+  - qoldiqni tuzatish
+  - kunlik hisobot
+- UI:
+  - qorong'i/yorug' mavzu
+  - planshet uchun moslashuvchan dizayn
+  - RU/UZ
+
+### Texnologiyalar
+
+- Backend: `FastAPI` + `SQLAlchemy` + `SQLite`
+- Frontend: `React` + `Vite`
+- Ixtiyoriy: `Docker Compose`
+
+### Demo kirish
+
+- `admin`: `admin123`
+- `cashier`: `cashier123`
+
+> Production uchun autentifikatsiyani backend'ga ko'chirish tavsiya etiladi (JWT/session, parol xeshlash).
+
+### Lokal ishga tushirish
+
+Backend:
 
 ```bash
-docker compose up --build
+cd backend
+py -3.13 -m pip install -r requirements.txt
+py -3.13 -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+Frontend:
+
+```bash
+cd frontend
+npm install
+npm run dev
 ```
 
 - Frontend: `http://localhost:5173`
 - Backend: `http://localhost:8000`
+- Swagger: `http://localhost:8000/docs`
 
-## API Endpoints
+### API
 
-### System
 - `GET /api/health`
-
-### Products
 - `GET /api/products`
 - `POST /api/products`
 - `PATCH /api/products/{product_id}`
-
-### Stock
 - `POST /api/stock/adjust`
-
-### Sales
-- `POST /api/sales`
-  - supports `price_override`
-  - supports negative `qty` for returns
-
-### Reports
+- `POST /api/sales` (`price_override` va qaytarish uchun manfiy `qty` qo'llanadi)
 - `GET /api/reports/daily`
 - `GET /api/reports/popular?limit=8`
 
-## Build Frontend
+---
+
+## EN
+
+Modern POS system for retail stores (fruit/vegetable shops, mini-markets, kiosks):
+- cashier workflow (fast checkout, cart, receipt printing)
+- admin workflow (products and stock control)
+- daily analytics and popular products
+- `RU / UZ` UI language switch
+- installable app-like mode (PWA)
+
+### Key Features
+
+- Role-based access: `admin` / `cashier`
+- Cashier mode:
+  - product search by name/SKU
+  - quick buttons for popular products
+  - discount/markup per line
+  - return mode (negative quantity)
+  - receipt print (`window.print`)
+  - shift number support
+- Admin mode:
+  - create products
+  - adjust stock
+  - daily report
+- UI:
+  - dark/light theme
+  - tablet-friendly responsive layout
+  - RU/UZ localization
+
+### Tech Stack
+
+- Backend: `FastAPI` + `SQLAlchemy` + `SQLite`
+- Frontend: `React` + `Vite`
+- Optional: `Docker Compose`
+
+### Demo Credentials
+
+- `admin`: `admin123`
+- `cashier`: `cashier123`
+
+> For production, move authentication to backend (JWT/sessions, hashed passwords).
+
+### Run Locally
+
+Backend:
+
+```bash
+cd backend
+py -3.13 -m pip install -r requirements.txt
+py -3.13 -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+Frontend:
 
 ```bash
 cd frontend
-npm run build
+npm install
+npm run dev
 ```
 
-## Roadmap (Next Level)
+- Frontend: `http://localhost:5173`
+- Backend: `http://localhost:8000`
+- Swagger: `http://localhost:8000/docs`
 
-- Backend authentication and RBAC (JWT + permissions)
-- Sale history UI + return by original receipt
-- Receipt templates for 58mm/80mm thermal printers
-- Customer loyalty, promo rules, multi-cashier shifts
-- PostgreSQL + Alembic migrations + automated tests
+### API
+
+- `GET /api/health`
+- `GET /api/products`
+- `POST /api/products`
+- `PATCH /api/products/{product_id}`
+- `POST /api/stock/adjust`
+- `POST /api/sales` (supports `price_override` and negative `qty` for returns)
+- `GET /api/reports/daily`
+- `GET /api/reports/popular?limit=8`
+
+---
+
+## Screenshots
+
+Add your UI images into `docs/screenshots/` and reference them here.
+
+Example:
+
+```md
+![Cashier RU](docs/screenshots/cashier-ru.png)
+![Admin UZ](docs/screenshots/admin-uz.png)
+![Cashier EN Dark](docs/screenshots/cashier-en-dark.png)
+```
