@@ -1,0 +1,10 @@
+{
+  "name": "Mini POS Pro",
+  "short_name": "MiniPOS",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b1220",
+  "theme_color": "#0b1220",
+  "lang": "ru",
+  "description": "POS system for admin and cashier workflows"
+}

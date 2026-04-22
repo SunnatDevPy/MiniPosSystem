@@ -6,6 +6,7 @@ from pydantic import BaseModel
 class SaleItemCreate(BaseModel):
     product_id: int
     qty: float
+    price_override: float | None = None
 
 
 class SaleCreate(BaseModel):

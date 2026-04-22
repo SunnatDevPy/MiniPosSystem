@@ -1,7 +1,7 @@
 from datetime import date, datetime, time
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.db import get_db
@@ -74,20 +74,25 @@ def create_sale(payload: SaleCreate, db: Session = Depends(get_db)):
         product = db.get(Product, row.product_id)
         if not product:
             raise HTTPException(status_code=404, detail=f"Product {row.product_id} not found")
-        if row.qty <= 0:
-            raise HTTPException(status_code=400, detail="Qty must be positive")
-        if product.stock_qty < row.qty:
+        if row.qty == 0:
+            raise HTTPException(status_code=400, detail="Qty cannot be zero")
+        if row.qty > 0 and product.stock_qty < row.qty:
             raise HTTPException(status_code=400, detail=f"Not enough stock for {product.name}")
 
+        unit_price = (
+            round(float(row.price_override), 2)
+            if row.price_override is not None
+            else round(float(product.sell_price), 2)
+        )
         product.stock_qty -= row.qty
-        line_total = round(product.sell_price * row.qty, 2)
+        line_total = round(unit_price * row.qty, 2)
         total += line_total
         db.add(
             SaleItem(
                 sale_id=sale.id,
                 product_id=product.id,
                 qty=row.qty,
-                price=product.sell_price,
+                price=unit_price,
                 line_total=line_total,
             )
         )
@@ -97,6 +102,34 @@ def create_sale(payload: SaleCreate, db: Session = Depends(get_db)):
 
     result = db.scalar(select(Sale).options(joinedload(Sale.items)).where(Sale.id == sale.id))
     return result
+
+
+@router.get("/reports/popular")
+def popular_products(limit: int = 8, db: Session = Depends(get_db)):
+    safe_limit = max(1, min(limit, 20))
+    rows = db.execute(
+        select(
+            Product.id,
+            Product.name,
+            Product.sell_price,
+            func.coalesce(func.sum(SaleItem.qty), 0).label("sold_qty"),
+        )
+        .join(SaleItem, SaleItem.product_id == Product.id)
+        .where(SaleItem.qty > 0)
+        .group_by(Product.id)
+        .order_by(desc("sold_qty"))
+        .limit(safe_limit)
+    ).all()
+
+    return [
+        {
+            "id": row.id,
+            "name": row.name,
+            "sell_price": float(row.sell_price),
+            "sold_qty": float(row.sold_qty),
+        }
+        for row in rows
+    ]
 
 
 @router.get("/reports/daily")

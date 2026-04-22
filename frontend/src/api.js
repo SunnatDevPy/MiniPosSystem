@@ -18,4 +18,5 @@ export const api = {
   adjustStock: (payload) => request("/stock/adjust", { method: "POST", body: JSON.stringify(payload) }),
   createSale: (payload) => request("/sales", { method: "POST", body: JSON.stringify(payload) }),
   dailyReport: () => request("/reports/daily"),
+  popularProducts: (limit = 8) => request(`/reports/popular?limit=${limit}`),
 };
