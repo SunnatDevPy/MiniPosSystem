@@ -47,8 +47,8 @@
 
 ### Демо-доступ
 
-- `admin`: `admin123`
-- `cashier`: `cashier123`
+- `admin`: `admin2026` (default temporary access password)
+- `cashier`: `cashier2026` (default temporary access password)
 
 > Для production рекомендуется вынести авторизацию в backend (JWT/сессии, хэшированные пароли).
 
@@ -123,8 +123,8 @@ Zamonaviy POS tizimi (meva/sabzavot do'koni, mini-market, kiosklar) uchun:
 
 ### Demo kirish
 
-- `admin`: `admin123`
-- `cashier`: `cashier123`
+- `admin`: `admin2026` (default temporary access password)
+- `cashier`: `cashier2026` (default temporary access password)
 
 > Production uchun autentifikatsiyani backend'ga ko'chirish tavsiya etiladi (JWT/session, parol xeshlash).
 
@@ -199,8 +199,8 @@ Modern POS system for retail stores (fruit/vegetable shops, mini-markets, kiosks
 
 ### Demo Credentials
 
-- `admin`: `admin123`
-- `cashier`: `cashier123`
+- `admin`: `admin2026` (default temporary access password)
+- `cashier`: `cashier2026` (default temporary access password)
 
 > For production, move authentication to backend (JWT/sessions, hashed passwords).
 
