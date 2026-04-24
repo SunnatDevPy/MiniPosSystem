@@ -7,7 +7,23 @@
 - [RU](#ru)
 - [UZ](#uz)
 - [EN](#en)
+- [Recent Updates](#recent-updates)
 - [Screenshots](#screenshots)
+
+---
+
+## Recent Updates
+
+- Product/Categories tables upgraded with inline quick-edit popovers and cleaner admin workflow.
+- Quick-sale tiles added for cashier mode (admin-managed cards, drag reorder, and one-click add to cart).
+- Offline-friendly cashier support: sync button and local cache fallback for products/cards.
+- Weight products screen added with search/export and scale TXT generation.
+- Price labels module added with template list, create/edit UI, live preview, and print-ready view.
+- Backend extended with label template APIs:
+  - `GET /api/settings/label-templates`
+  - `POST /api/settings/label-templates`
+  - `PATCH /api/settings/label-templates/{id}`
+  - `DELETE /api/settings/label-templates/{id}`
 
 ---
 

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, JSON, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
@@ -152,3 +152,18 @@ class AuditLog(Base):
     entity_id: Mapped[str | None] = mapped_column(String(60), nullable=True)
     details: Mapped[str | None] = mapped_column(String(500), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class LabelTemplate(Base):
+    __tablename__ = "label_templates"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    width: Mapped[int] = mapped_column(Integer, default=58)
+    height: Mapped[int] = mapped_column(Integer, default=40)
+    format_price: Mapped[bool] = mapped_column(Boolean, default=False)
+    price_suffix: Mapped[str] = mapped_column(String(80), default="")
+    show: Mapped[dict] = mapped_column(JSON, default=dict)
+    font: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

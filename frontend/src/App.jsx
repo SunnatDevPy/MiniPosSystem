@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api";
 import "./App.css";
 
@@ -586,6 +586,9 @@ export default function App() {
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [editingProductId, setEditingProductId] = useState(null);
   const [inlineEdit, setInlineEdit] = useState(null);
+  const [categoryQuickEdit, setCategoryQuickEdit] = useState(null);
+  const productQuickPopoverRef = useRef(null);
+  const categoryQuickPopoverRef = useRef(null);
   const [warningModal, setWarningModal] = useState({
     open: false,
     title: "",
@@ -595,12 +598,62 @@ export default function App() {
   });
   const [customCategories, setCustomCategories] = useState([]);
   const [categoryForm, setCategoryForm] = useState({ name: "", imageName: "", tariff: "" });
+  const [categoryEditingName, setCategoryEditingName] = useState("");
+  const [quickSaleTiles, setQuickSaleTiles] = useState(() => {
+    try {
+      const raw = localStorage.getItem("quickSaleTiles");
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
+  const [activeQuickCategory, setActiveQuickCategory] = useState("all");
+  const [showQuickTileModal, setShowQuickTileModal] = useState(false);
+  const [quickTileTab, setQuickTileTab] = useState("product");
+  const [quickTileSearch, setQuickTileSearch] = useState("");
+  const [quickTileValue, setQuickTileValue] = useState("");
+  const [quickTileDragId, setQuickTileDragId] = useState(null);
+  const [syncNote, setSyncNote] = useState("");
+  const [weightSearch, setWeightSearch] = useState("");
+  const [scaleName, setScaleName] = useState("IFTIQOR 80");
+  const [settingsView, setSettingsView] = useState(() => localStorage.getItem("settingsView") || "general");
+  const [labelTemplates, setLabelTemplates] = useState(() => {
+    try {
+      const raw = localStorage.getItem("labelTemplates");
+      const parsed = raw ? JSON.parse(raw) : null;
+      if (Array.isArray(parsed) && parsed.length) return parsed;
+    } catch {
+      // ignore
+    }
+    return [
+      {
+        id: 0,
+        name: "Cennik 58*40",
+        width: 58,
+        height: 40,
+        formatPrice: false,
+        priceSuffix: "",
+        show: { name: true, price: true, artikul: true, barcode: true, logo: false, custom1: false, custom2: false },
+        font: { size: 28, weight: 700, align: "center", sampleText: "30,000" },
+      },
+    ];
+  });
+  const [activeLabelTemplateId, setActiveLabelTemplateId] = useState(0);
+  const [showLabelTemplateEditor, setShowLabelTemplateEditor] = useState(false);
+  const [labelTemplateDraft, setLabelTemplateDraft] = useState(null);
+  const [labelDragState, setLabelDragState] = useState(null);
+  const labelPreviewRef = useRef(null);
+  const [labelPrintSearch, setLabelPrintSearch] = useState("");
+  const [labelPrintRowsPerLine, setLabelPrintRowsPerLine] = useState(1);
+  const [labelPrintQty, setLabelPrintQty] = useState({});
+  const [showLabelPrintPreview, setShowLabelPrintPreview] = useState(false);
   const [productBarcodes, setProductBarcodes] = useState([""]);
   const [stockForm, setStockForm] = useState({ product_id: "", qty_delta: 0, reason: "adjustment", note: "" });
   const [adminSection, setAdminSection] = useState(() => localStorage.getItem("adminSection") || "reports");
-  const [reportsView, setReportsView] = useState("sales");
-  const [productsView, setProductsView] = useState("products");
-  const [financeView, setFinanceView] = useState("supplier-payments");
+  const [reportsView, setReportsView] = useState(() => localStorage.getItem("reportsView") || "sales");
+  const [productsView, setProductsView] = useState(() => localStorage.getItem("productsView") || "products");
+  const [financeView, setFinanceView] = useState(() => localStorage.getItem("financeView") || "supplier-payments");
   const [sidebarOpen, setSidebarOpen] = useState(() => localStorage.getItem("sidebarOpen") !== "false");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem("sidebarCollapsed") === "true");
   const [isDesktop, setIsDesktop] = useState(() => window.innerWidth > 980);
@@ -661,6 +714,26 @@ export default function App() {
   }, [adminSection]);
 
   useEffect(() => {
+    localStorage.setItem("reportsView", reportsView);
+  }, [reportsView]);
+
+  useEffect(() => {
+    localStorage.setItem("productsView", productsView);
+  }, [productsView]);
+
+  useEffect(() => {
+    localStorage.setItem("financeView", financeView);
+  }, [financeView]);
+
+  useEffect(() => {
+    localStorage.setItem("settingsView", settingsView);
+  }, [settingsView]);
+
+  useEffect(() => {
+    localStorage.setItem("labelTemplates", JSON.stringify(labelTemplates));
+  }, [labelTemplates]);
+
+  useEffect(() => {
     localStorage.setItem("sidebarOpen", String(sidebarOpen));
   }, [sidebarOpen]);
 
@@ -683,6 +756,54 @@ export default function App() {
   useEffect(() => {
     if (session) refresh();
   }, [session]);
+
+  useEffect(() => {
+    localStorage.setItem("quickSaleTiles", JSON.stringify(quickSaleTiles));
+  }, [quickSaleTiles]);
+
+  useEffect(() => {
+    if (!categoryQuickEdit) return;
+    function onPointerDown(e) {
+      if (!categoryQuickPopoverRef.current) return;
+      if (!categoryQuickPopoverRef.current.contains(e.target)) {
+        setCategoryQuickEdit(null);
+      }
+    }
+    window.addEventListener("pointerdown", onPointerDown);
+    return () => window.removeEventListener("pointerdown", onPointerDown);
+  }, [categoryQuickEdit]);
+
+  useEffect(() => {
+    if (!labelDragState || !showLabelTemplateEditor) return;
+    function onMove(e) {
+      if (!labelPreviewRef.current) return;
+      const rect = labelPreviewRef.current.getBoundingClientRect();
+      const nextX = e.clientX - rect.left - labelDragState.offsetX;
+      const nextY = e.clientY - rect.top - labelDragState.offsetY;
+      updateLabelElementPosition(labelDragState.key, nextX, nextY);
+    }
+    function onUp() {
+      setLabelDragState(null);
+    }
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+  }, [labelDragState, showLabelTemplateEditor]);
+
+  useEffect(() => {
+    if (!inlineEdit) return;
+    function onPointerDown(e) {
+      if (!productQuickPopoverRef.current) return;
+      if (!productQuickPopoverRef.current.contains(e.target)) {
+        setInlineEdit(null);
+      }
+    }
+    window.addEventListener("pointerdown", onPointerDown);
+    return () => window.removeEventListener("pointerdown", onPointerDown);
+  }, [inlineEdit]);
 
   const filteredProducts = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -783,6 +904,156 @@ export default function App() {
     ];
     return Array.from(new Set(all)).sort((a, b) => a.localeCompare(b));
   }, [products, customCategories]);
+  const categoryRows = useMemo(() => {
+    const byName = new Map();
+    products.forEach((p) => {
+      const name = String(p.category || "").trim();
+      if (!name) return;
+      const key = name.toLowerCase();
+      const existing = byName.get(key);
+      if (existing) {
+        existing.productCount += 1;
+      } else {
+        byName.set(key, {
+          id: p.id,
+          name,
+          imageName: "",
+          tariff: "",
+          productCount: 1,
+          source: "product",
+          online: false,
+        });
+      }
+    });
+    customCategories.forEach((c, idx) => {
+      const name = String(c.name || "").trim();
+      if (!name) return;
+      const key = name.toLowerCase();
+      const existing = byName.get(key);
+      if (existing) {
+        existing.imageName = c.imageName || existing.imageName || "";
+        existing.tariff = c.tariff || existing.tariff || "";
+        existing.source = "custom";
+      } else {
+        byName.set(key, {
+          id: 9000 + idx,
+          name,
+          imageName: c.imageName || "",
+          tariff: c.tariff || "",
+          productCount: 0,
+          source: "custom",
+          online: false,
+        });
+      }
+    });
+    return Array.from(byName.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [products, customCategories]);
+  const filteredCategoryRows = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return categoryRows;
+    return categoryRows.filter((row) => row.name.toLowerCase().includes(q));
+  }, [categoryRows, search]);
+  const quickCategoryTiles = useMemo(
+    () => quickSaleTiles.filter((tile) => tile.type === "category"),
+    [quickSaleTiles]
+  );
+  const quickProductTiles = useMemo(
+    () => quickSaleTiles.filter((tile) => tile.type === "product"),
+    [quickSaleTiles]
+  );
+  const quickSellProducts = useMemo(() => {
+    const byId = new Map();
+    quickProductTiles.forEach((tile) => {
+      const product = products.find((p) => Number(p.id) === Number(tile.productId));
+      if (!product) return;
+      byId.set(Number(product.id), product);
+    });
+    quickCategoryTiles.forEach((tile) => {
+      const cname = String(tile.categoryName || "").trim().toLowerCase();
+      if (!cname) return;
+      products.forEach((p) => {
+        if (String(p.category || "").trim().toLowerCase() === cname) {
+          byId.set(Number(p.id), p);
+        }
+      });
+    });
+    let rows = Array.from(byId.values());
+    if (activeQuickCategory !== "all") {
+      rows = rows.filter(
+        (p) => String(p.category || "").trim().toLowerCase() === activeQuickCategory.toLowerCase()
+      );
+    }
+    rows.sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
+    return rows;
+  }, [quickProductTiles, quickCategoryTiles, products, activeQuickCategory]);
+  const quickCashierTiles = useMemo(() => {
+    return quickSaleTiles
+      .map((tile) => {
+        if (tile.type === "category") {
+          return { ...tile, kind: "category" };
+        }
+        const product = products.find((p) => Number(p.id) === Number(tile.productId));
+        if (!product) return null;
+        if (activeQuickCategory !== "all") {
+          const pcat = String(product.category || "").trim().toLowerCase();
+          if (pcat !== activeQuickCategory.toLowerCase()) return null;
+        }
+        return { ...tile, kind: "product", product };
+      })
+      .filter(Boolean);
+  }, [quickSaleTiles, products, activeQuickCategory]);
+  const activeLabelTemplate = useMemo(
+    () => labelTemplates.find((x) => x.id === activeLabelTemplateId) || labelTemplates[0] || null,
+    [labelTemplates, activeLabelTemplateId]
+  );
+  const labelPrintProducts = useMemo(() => {
+    const q = labelPrintSearch.trim().toLowerCase();
+    if (!q) return products;
+    return products.filter(
+      (p) =>
+        String(p.name || "").toLowerCase().includes(q) ||
+        String(p.artikul || "").toLowerCase().includes(q) ||
+        String(p.barcode || "").toLowerCase().includes(q)
+    );
+  }, [products, labelPrintSearch]);
+  const labelPrintSelectedRows = useMemo(
+    () =>
+      labelPrintProducts
+        .map((p) => ({ product: p, qty: Number(labelPrintQty[p.id] || 0) }))
+        .filter((x) => x.qty > 0),
+    [labelPrintProducts, labelPrintQty]
+  );
+  const weightProducts = useMemo(() => {
+    const rows = products.filter((p) => String(p.unit || "").toLowerCase() === "kg");
+    const q = weightSearch.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter(
+      (p) =>
+        String(p.name || "").toLowerCase().includes(q) ||
+        String(p.artikul || "").toLowerCase().includes(q) ||
+        String(p.id || "").includes(q) ||
+        String(p.category || "").toLowerCase().includes(q)
+    );
+  }, [products, weightSearch]);
+
+  useEffect(() => {
+    if (!products.length) return;
+    setQuickSaleTiles((prev) => {
+      const next = prev.filter((tile) => {
+        if (tile.type === "product") {
+          return products.some((p) => Number(p.id) === Number(tile.productId));
+        }
+        if (tile.type === "category") {
+          return productCategories.some(
+            (c) => String(c).toLowerCase() === String(tile.categoryName || "").toLowerCase()
+          );
+        }
+        return false;
+      });
+      if (next.length === prev.length) return prev;
+      return next;
+    });
+  }, [products, productCategories]);
   const historyRows = useMemo(() => {
     const byProduct = new Map();
     historySales.forEach((sale) => {
@@ -895,6 +1166,15 @@ export default function App() {
       setReport((daily?.sales_count || daily?.revenue) ? daily : demoDailyReport());
       setPopular(top);
       setDashboard((dash?.today?.sales_count || dash?.today?.revenue) ? dash : demoDashboard());
+      localStorage.setItem(
+        "posOfflineCache",
+        JSON.stringify({
+          products: items,
+          popular: top,
+          quickSaleTiles,
+          updatedAt: new Date().toISOString(),
+        })
+      );
       const stats = await api.salesStats(new Date(salesFilter.from).toISOString(), new Date(salesFilter.to).toISOString());
       setSalesStats((stats?.summary?.sales_count || stats?.summary?.revenue) ? stats : demoSalesStats());
       const ops = await Promise.allSettled([
@@ -907,6 +1187,7 @@ export default function App() {
         api.listReturns(),
         api.auditLogs(),
         api.currentShift(),
+        api.listLabelTemplates(),
       ]);
       if (ops[0].status === "fulfilled") setSalesList(ops[0].value.length ? ops[0].value : demoSales());
       if (ops[1].status === "fulfilled") setHistorySales(ops[1].value.length ? ops[1].value : demoSales());
@@ -917,8 +1198,31 @@ export default function App() {
       if (ops[6].status === "fulfilled") setReturns(ops[6].value);
       if (ops[7].status === "fulfilled") setAuditLogs(ops[7].value);
       if (ops[8].status === "fulfilled") setCurrentShift(ops[8].value);
+      if (ops[9].status === "fulfilled" && Array.isArray(ops[9].value)) {
+        const templates = ops[9].value.map(normalizeTemplateFromApi);
+        if (templates.length) {
+          setLabelTemplates(templates);
+          setActiveLabelTemplateId((prev) =>
+            templates.some((x) => Number(x.id) === Number(prev)) ? prev : templates[0].id
+          );
+        }
+      }
     } catch (e) {
       setError(e.message);
+      try {
+        const raw = localStorage.getItem("posOfflineCache");
+        const cache = raw ? JSON.parse(raw) : null;
+        if (cache?.products?.length) {
+          setProducts(cache.products);
+          setPopular(Array.isArray(cache.popular) ? cache.popular : []);
+          if (Array.isArray(cache.quickSaleTiles)) {
+            setQuickSaleTiles(cache.quickSaleTiles);
+          }
+          setSyncNote(`Offline rejim: keshlangan ma'lumot (${new Date(cache.updatedAt || Date.now()).toLocaleString()})`);
+        }
+      } catch {
+        // ignore cache read error
+      }
     } finally {
       setLoading(false);
     }
@@ -1005,9 +1309,9 @@ export default function App() {
     setMode(login.role === "admin" ? "admin" : "cashier");
   }
 
-  function addToCart(product = selectedProduct) {
+  function addToCart(product = selectedProduct, options = {}) {
     if (!product) return;
-    const qtyBase = Number(saleForm.qty || 0);
+    const qtyBase = Number((options.qtyOverride ?? saleForm.qty) || 0);
     if (!qtyBase) return;
     const qty = returnMode ? -Math.abs(qtyBase) : Math.abs(qtyBase);
     const discount = Number(saleForm.discount || 0);
@@ -1024,6 +1328,223 @@ export default function App() {
         lineTotal,
       },
     ]);
+  }
+
+  function addQuickTile() {
+    const value = String(quickTileValue || "").trim();
+    if (!value) return;
+    if (quickTileTab === "product") {
+      const product = products.find((p) => Number(p.id) === Number(value));
+      if (!product) return;
+      const id = `p-${product.id}`;
+      setQuickSaleTiles((prev) => {
+        if (prev.some((x) => x.id === id)) return prev;
+        return [...prev, { id, type: "product", productId: Number(product.id), label: product.name }];
+      });
+    } else {
+      const categoryName = value;
+      const id = `c-${categoryName.toLowerCase()}`;
+      setQuickSaleTiles((prev) => {
+        if (prev.some((x) => x.id === id)) return prev;
+        return [...prev, { id, type: "category", categoryName, label: categoryName }];
+      });
+    }
+    setQuickTileValue("");
+    setQuickTileSearch("");
+    setShowQuickTileModal(false);
+  }
+
+  function removeQuickTile(tileId) {
+    setQuickSaleTiles((prev) => prev.filter((x) => x.id !== tileId));
+  }
+
+  function downloadTextFile(filename, content) {
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function sanitizeScaleText(value) {
+    return String(value ?? "")
+      .replace(/[\r\n]+/g, " ")
+      .replace(/;/g, ",")
+      .trim();
+  }
+
+  function buildScaleText(rows) {
+    return rows
+      .map((p, idx) => {
+        const name = sanitizeScaleText(p.name);
+        const price = Math.round(Number(p.sell_price || 0));
+        const code = Number(p.artikul || p.id || idx + 1);
+        return `${idx + 1};${name};;${price};0;0;0;${code};0;0;;01.01.01;0;7;11;0;01.01.2001`;
+      })
+      .join("\n");
+  }
+
+  function normalizeTemplateFromApi(row) {
+    const defaultPositions = {
+      name: { x: 8, y: 8 },
+      price: { x: 8, y: 42 },
+      barcode: { x: 8, y: 94 },
+      artikul: { x: 184, y: 96 },
+      custom1: { x: 8, y: 118 },
+      custom2: { x: 8, y: 136 },
+    };
+    return {
+      id: row.id,
+      name: row.name,
+      width: row.width,
+      height: row.height,
+      formatPrice: Boolean(row.format_price),
+      priceSuffix: row.price_suffix || "",
+      show: row.show || {},
+      font: {
+        size: Number(row?.font?.size ?? 28),
+        weight: Number(row?.font?.weight ?? 700),
+        align: row?.font?.align || "center",
+        sampleText: row?.font?.sampleText || "30,000",
+        positions: { ...defaultPositions, ...(row?.font?.positions || {}) },
+      },
+    };
+  }
+
+  function toTemplateApiPayload(template) {
+    return {
+      name: template.name,
+      width: Number(template.width || 58),
+      height: Number(template.height || 40),
+      format_price: Boolean(template.formatPrice),
+      price_suffix: template.priceSuffix || "",
+      show: template.show || {},
+      font: template.font || {},
+    };
+  }
+
+  function exportWeightProducts() {
+    const header = "№;Tarozi kodi;Nomi;Toifa;Narxi";
+    const body = weightProducts
+      .map((p, idx) => {
+        const code = sanitizeScaleText(p.artikul || p.id);
+        const name = sanitizeScaleText(p.name);
+        const category = sanitizeScaleText(p.category || "");
+        const price = Math.round(Number(p.sell_price || 0));
+        return `${idx + 1};${code};${name};${category};${price}`;
+      })
+      .join("\n");
+    downloadTextFile(`weight-products-${new Date().toISOString().slice(0, 10)}.txt`, `${header}\n${body}`);
+  }
+
+  function uploadScaleText() {
+    const rows = products.filter((p) => String(p.unit || "").toLowerCase() === "kg");
+    const content = buildScaleText(rows);
+    const scaleSafe = sanitizeScaleText(scaleName || "scale").replace(/\s+/g, "_");
+    downloadTextFile(`${scaleSafe}.txt`, content);
+  }
+
+  function createEmptyLabelTemplate() {
+    return {
+      id: 0,
+      name: "Yangi cennik",
+      width: 58,
+      height: 40,
+      formatPrice: false,
+      priceSuffix: "",
+      show: { name: true, price: true, artikul: true, barcode: true, logo: false, custom1: false, custom2: false },
+      font: {
+        size: 28,
+        weight: 700,
+        align: "center",
+        sampleText: "30,000",
+        positions: {
+          name: { x: 8, y: 8 },
+          price: { x: 8, y: 42 },
+          barcode: { x: 8, y: 94 },
+          artikul: { x: 184, y: 96 },
+          custom1: { x: 8, y: 118 },
+          custom2: { x: 8, y: 136 },
+        },
+      },
+    };
+  }
+
+  function updateLabelElementPosition(key, x, y) {
+    setLabelTemplateDraft((prev) => ({
+      ...prev,
+      font: {
+        ...prev.font,
+        positions: {
+          ...(prev.font?.positions || {}),
+          [key]: { x: Math.max(0, Math.round(x)), y: Math.max(0, Math.round(y)) },
+        },
+      },
+    }));
+  }
+
+  function openCreateLabelTemplate() {
+    setLabelTemplateDraft(createEmptyLabelTemplate());
+    setShowLabelTemplateEditor(true);
+  }
+
+  function openEditLabelTemplate(template) {
+    setLabelTemplateDraft(JSON.parse(JSON.stringify(template)));
+    setShowLabelTemplateEditor(true);
+  }
+
+  async function saveLabelTemplate() {
+    if (!labelTemplateDraft) return;
+    try {
+      let saved;
+      if (Number(labelTemplateDraft.id) > 0) {
+        saved = await api.updateLabelTemplate(labelTemplateDraft.id, toTemplateApiPayload(labelTemplateDraft));
+      } else {
+        saved = await api.createLabelTemplate(toTemplateApiPayload(labelTemplateDraft));
+      }
+      const normalized = normalizeTemplateFromApi(saved);
+      setLabelTemplates((prev) => {
+        const idx = prev.findIndex((x) => Number(x.id) === Number(normalized.id));
+        if (idx < 0) return [...prev, normalized];
+        const next = [...prev];
+        next[idx] = normalized;
+        return next;
+      });
+      setActiveLabelTemplateId(normalized.id);
+      setShowLabelTemplateEditor(false);
+      setLabelTemplateDraft(null);
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  function reorderQuickTiles(fromId, toId) {
+    if (!fromId || !toId || fromId === toId) return;
+    setQuickSaleTiles((prev) => {
+      const fromIndex = prev.findIndex((x) => x.id === fromId);
+      const toIndex = prev.findIndex((x) => x.id === toId);
+      if (fromIndex < 0 || toIndex < 0) return prev;
+      const next = [...prev];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
+      return next;
+    });
+  }
+
+  async function syncOfflineCacheNow() {
+    setSyncNote("Sinxronizatsiya jarayoni...");
+    try {
+      await refresh();
+      const raw = localStorage.getItem("posOfflineCache");
+      const cache = raw ? JSON.parse(raw) : null;
+      setSyncNote(`Sinxronizatsiya tayyor (${new Date(cache?.updatedAt || Date.now()).toLocaleString()})`);
+    } catch {
+      setSyncNote("Sinxronizatsiya bajarilmadi");
+    }
   }
 
   async function checkout() {
@@ -1136,11 +1657,17 @@ export default function App() {
     });
   }
 
-  function startInlineEdit(product, field) {
+  function startInlineEdit(product, field, event) {
     const allowed = new Set(["name", "sell_price", "buy_price"]);
     if (!allowed.has(field)) return;
     if (inlineEdit?.id === product.id && inlineEdit?.field === field) return;
-    setInlineEdit({ id: product.id, field, value: String(product[field] ?? "") });
+    const cellRect = event?.currentTarget?.getBoundingClientRect?.();
+    const popoverWidth = 220;
+    const left = cellRect
+      ? Math.max(8, Math.min(cellRect.left, window.innerWidth - popoverWidth - 8))
+      : 16;
+    const top = cellRect ? Math.min(cellRect.bottom + 6, window.innerHeight - 110) : 16;
+    setInlineEdit({ id: product.id, field, value: String(product[field] ?? ""), top, left });
   }
 
   async function commitInlineEdit(draft = inlineEdit) {
@@ -1173,17 +1700,141 @@ export default function App() {
     }
   }
 
-  function createCategory(e) {
+  async function createCategory(e) {
     e.preventDefault();
     const name = categoryForm.name.trim();
     if (!name) return;
-    setCustomCategories((prev) => {
-      if (prev.some((c) => c.name.toLowerCase() === name.toLowerCase())) return prev;
-      return [...prev, { ...categoryForm, name }];
+    try {
+      if (categoryEditingName) {
+        const oldName = categoryEditingName.trim();
+        const duplicate = categoryRows.some(
+          (c) =>
+            c.name.toLowerCase() === name.toLowerCase() &&
+            c.name.toLowerCase() !== oldName.toLowerCase()
+        );
+        if (duplicate) {
+          setError("Bu nomdagi kategoriya allaqachon mavjud");
+          return;
+        }
+        const affectedProducts = products.filter(
+          (p) => String(p.category || "").trim().toLowerCase() === oldName.toLowerCase()
+        );
+        if (name.toLowerCase() !== oldName.toLowerCase()) {
+          await Promise.all(
+            affectedProducts.map((p) => api.updateProduct(p.id, { category: name }))
+          );
+        }
+        setCustomCategories((prev) => {
+          const withoutOld = prev.filter((c) => c.name.toLowerCase() !== oldName.toLowerCase());
+          return [...withoutOld, { ...categoryForm, name }];
+        });
+      } else {
+        setCustomCategories((prev) => {
+          if (prev.some((c) => c.name.toLowerCase() === name.toLowerCase())) return prev;
+          return [...prev, { ...categoryForm, name }];
+        });
+      }
+      setProductForm((s) => {
+        if (categoryEditingName && String(s.category || "").trim().toLowerCase() === categoryEditingName.toLowerCase()) {
+          return { ...s, category: name };
+        }
+        return { ...s, category: name };
+      });
+      setCategoryForm({ name: "", imageName: "", tariff: "" });
+      setCategoryEditingName("");
+      setShowCategoryModal(false);
+      await refresh();
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  function removeCategory(categoryRow) {
+    setWarningModal({
+      open: true,
+      title: "Kategoriyani o'chirish",
+      message: `\"${categoryRow.name}\" kategoriyasini o'chirasizmi?`,
+      confirmMode: true,
+      onConfirm: async () => {
+        try {
+          const categoryName = String(categoryRow.name || "").trim();
+          const affectedProducts = products.filter(
+            (p) => String(p.category || "").trim().toLowerCase() === categoryName.toLowerCase()
+          );
+          await Promise.all(
+            affectedProducts.map((p) =>
+              api.updateProduct(p.id, { category: "General" })
+            )
+          );
+          setCustomCategories((prev) =>
+            prev.filter((c) => c.name.toLowerCase() !== categoryName.toLowerCase())
+          );
+          if (String(productForm.category || "").trim().toLowerCase() === categoryName.toLowerCase()) {
+            setProductForm((s) => ({ ...s, category: "General" }));
+          }
+          setCategoryQuickEdit(null);
+          await refresh();
+        } catch (e) {
+          setError(e.message);
+        }
+      },
     });
-    setProductForm((s) => ({ ...s, category: name }));
-    setCategoryForm({ name: "", imageName: "", tariff: "" });
-    setShowCategoryModal(false);
+  }
+
+  function startCategoryInlineEdit(categoryRow, event) {
+    const name = String(categoryRow.name || "").trim();
+    if (!name) return;
+    if (categoryQuickEdit?.originalName?.toLowerCase() === name.toLowerCase()) return;
+    const cellRect = event?.currentTarget?.getBoundingClientRect?.();
+    const popoverWidth = 220;
+    const left = cellRect
+      ? Math.max(8, Math.min(cellRect.left, window.innerWidth - popoverWidth - 8))
+      : 16;
+    const top = cellRect ? Math.min(cellRect.bottom + 6, window.innerHeight - 110) : 16;
+    setCategoryQuickEdit({ originalName: name, value: name, top, left });
+  }
+
+  async function commitCategoryInlineEdit(draft = categoryQuickEdit) {
+    if (!draft) return;
+    const originalName = String(draft.originalName || "").trim();
+    const nextName = String(draft.value || "").trim();
+    if (!nextName) {
+      setError("Kategoriya nomi bo'sh bo'lmasligi kerak");
+      return;
+    }
+    if (originalName.toLowerCase() === nextName.toLowerCase()) {
+      setCategoryQuickEdit(null);
+      return;
+    }
+    const duplicate = categoryRows.some(
+      (c) => c.name.toLowerCase() === nextName.toLowerCase()
+    );
+    if (duplicate) {
+      setError("Bu nomdagi kategoriya allaqachon mavjud");
+      return;
+    }
+    try {
+      const affectedProducts = products.filter(
+        (p) => String(p.category || "").trim().toLowerCase() === originalName.toLowerCase()
+      );
+      await Promise.all(
+        affectedProducts.map((p) =>
+          api.updateProduct(p.id, { category: nextName })
+        )
+      );
+      setCustomCategories((prev) =>
+        prev.map((c) =>
+          c.name.toLowerCase() === originalName.toLowerCase() ? { ...c, name: nextName } : c
+        )
+      );
+      if (String(productForm.category || "").trim().toLowerCase() === originalName.toLowerCase()) {
+        setProductForm((s) => ({ ...s, category: nextName }));
+      }
+      setCategoryQuickEdit(null);
+      await refresh();
+    } catch (e) {
+      setError(e.message);
+    }
   }
 
   async function adjustStock(e) {
@@ -1416,6 +2067,60 @@ export default function App() {
               </article>
             </div>
             <input placeholder={t.search} value={search} onChange={(e) => setSearch(e.target.value)} />
+            <div className="pos-quick-board">
+              <div className="pos-quick-head row">
+                <strong>Kassa uchun kartochkalar</strong>
+                <div className="row">
+                  <button type="button" onClick={syncOfflineCacheNow}>Sinxronizatsiya</button>
+                  {session.role === "admin" ? (
+                    <button type="button" onClick={() => { setProductsView("top"); setMode("admin"); setAdminSection("products"); }}>
+                      Sozlash
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+              {syncNote ? <p className="muted">{syncNote}</p> : null}
+              <div className="pos-quick-categories">
+                <button
+                  type="button"
+                  className={`pos-cat-card ${activeQuickCategory === "all" ? "active" : ""}`}
+                  onClick={() => setActiveQuickCategory("all")}
+                >
+                  Barchasi
+                </button>
+                {quickCategoryTiles.map((tile) => (
+                  <button
+                    key={tile.id}
+                    type="button"
+                    className={`pos-cat-card ${activeQuickCategory.toLowerCase() === String(tile.categoryName || "").toLowerCase() ? "active" : ""}`}
+                    onClick={() => setActiveQuickCategory(tile.categoryName)}
+                  >
+                    {tile.label}
+                  </button>
+                ))}
+              </div>
+              <div className="pos-quick-products">
+                {quickCashierTiles.map((tile) => (
+                  tile.kind === "category" ? (
+                    <button
+                      key={tile.id}
+                      type="button"
+                      className={`pos-product-card pos-category-card ${activeQuickCategory.toLowerCase() === String(tile.categoryName || "").toLowerCase() ? "active" : ""}`}
+                      onClick={() => setActiveQuickCategory(tile.categoryName)}
+                    >
+                      <span>{tile.label}</span>
+                      <em>toifa</em>
+                    </button>
+                  ) : (
+                    <button key={tile.id} type="button" className="pos-product-card" onClick={() => addToCart(tile.product, { qtyOverride: 1 })}>
+                      <span>{tile.product.name}</span>
+                      <em>{Math.round(Number(tile.product.sell_price || 0))}</em>
+                    </button>
+                  )
+                ))}
+                {!quickCashierTiles.length && <p className="muted">Tez sotuv kartochkalari sozlanmagan</p>}
+              </div>
+            </div>
             <div className="chips">
               {popular.map((p) => (
                 <button key={p.id} onClick={() => addToCart(products.find((x) => x.id === p.id))}>
@@ -2064,112 +2769,36 @@ export default function App() {
                         <h4>{t.products}</h4>
                         <div className="table-scroll">
                           <table>
-                            <thead><tr><th>ID</th><th>{t.product}</th><th>ARTIKUL</th><th>BARCODE</th><th>CATEGORY</th><th>Tannarxi</th><th>{t.price}</th><th>Marja %</th><th>{t.qty}</th><th>Amal</th></tr></thead>
+                            <thead><tr><th>ID</th><th>{t.product}</th><th>ARTIKUL</th><th>BARCODE</th><th>CATEGORY</th><th>Tannarxi</th><th>Marja %</th><th>{t.price}</th><th>{t.qty}</th><th>Amal</th></tr></thead>
                             <tbody>
                               {filteredProducts.map((p) => (
                                 <tr key={p.id}>
                                   <td>{p.id}</td>
                                   <td
                                     className="editable-cell"
-                                    onPointerDown={() => startInlineEdit(p, "name")}
-                                    onDoubleClick={() => startInlineEdit(p, "name")}
+                                    onDoubleClick={(e) => startInlineEdit(p, "name", e)}
                                   >
-                                    {inlineEdit?.id === p.id && inlineEdit?.field === "name" ? (
-                                      <div className="inline-edit-wrap" onPointerDown={(e) => e.stopPropagation()}>
-                                        <input
-                                          className="inline-edit-input"
-                                          autoFocus
-                                          value={inlineEdit.value}
-                                          onChange={(e) => setInlineEdit((s) => ({ ...s, value: e.target.value }))}
-                                          onBlur={() => commitInlineEdit()}
-                                          onPointerDown={(e) => e.stopPropagation()}
-                                          onKeyDown={(e) => {
-                                            if (e.key === "Enter") {
-                                              e.preventDefault();
-                                              e.stopPropagation();
-                                              commitInlineEdit();
-                                            }
-                                            if (e.key === "Escape") setInlineEdit(null);
-                                          }}
-                                        />
-                                        <button type="button" className="inline-icon-btn" onPointerDown={(e) => e.stopPropagation()} onClick={() => commitInlineEdit()} title="Saqlash">✔</button>
-                                        <button type="button" className="inline-icon-btn" onPointerDown={(e) => e.stopPropagation()} onClick={() => setInlineEdit(null)} title="Bekor qilish">✖</button>
-                                      </div>
-                                    ) : (
-                                      p.name
-                                    )}
+                                    {p.name}
                                   </td>
                                   <td>{p.artikul || "-"}</td>
                                   <td>{p.barcode || "-"}</td>
                                   <td>{p.category || "-"}</td>
                                   <td
                                     className="editable-cell"
-                                    onPointerDown={() => startInlineEdit(p, "buy_price")}
-                                    onDoubleClick={() => startInlineEdit(p, "buy_price")}
+                                    onDoubleClick={(e) => startInlineEdit(p, "buy_price", e)}
                                   >
-                                    {inlineEdit?.id === p.id && inlineEdit?.field === "buy_price" ? (
-                                      <div className="inline-edit-wrap" onPointerDown={(e) => e.stopPropagation()}>
-                                        <input
-                                          className="inline-edit-input"
-                                          type="text"
-                                          inputMode="decimal"
-                                          autoFocus
-                                          value={inlineEdit.value}
-                                          onChange={(e) => setInlineEdit((s) => ({ ...s, value: e.target.value }))}
-                                          onBlur={() => commitInlineEdit()}
-                                          onPointerDown={(e) => e.stopPropagation()}
-                                          onKeyDown={(e) => {
-                                            if (e.key === "Enter") {
-                                              e.preventDefault();
-                                              e.stopPropagation();
-                                              commitInlineEdit();
-                                            }
-                                            if (e.key === "Escape") setInlineEdit(null);
-                                          }}
-                                        />
-                                        <button type="button" className="inline-icon-btn" onPointerDown={(e) => e.stopPropagation()} onClick={() => commitInlineEdit()} title="Saqlash">✔</button>
-                                        <button type="button" className="inline-icon-btn" onPointerDown={(e) => e.stopPropagation()} onClick={() => setInlineEdit(null)} title="Bekor qilish">✖</button>
-                                      </div>
-                                    ) : (
-                                      formatMoney(p.buy_price)
-                                    )}
-                                  </td>
-                                  <td
-                                    className="editable-cell"
-                                    onPointerDown={() => startInlineEdit(p, "sell_price")}
-                                    onDoubleClick={() => startInlineEdit(p, "sell_price")}
-                                  >
-                                    {inlineEdit?.id === p.id && inlineEdit?.field === "sell_price" ? (
-                                      <div className="inline-edit-wrap" onPointerDown={(e) => e.stopPropagation()}>
-                                        <input
-                                          className="inline-edit-input"
-                                          type="text"
-                                          inputMode="decimal"
-                                          autoFocus
-                                          value={inlineEdit.value}
-                                          onChange={(e) => setInlineEdit((s) => ({ ...s, value: e.target.value }))}
-                                          onBlur={() => commitInlineEdit()}
-                                          onPointerDown={(e) => e.stopPropagation()}
-                                          onKeyDown={(e) => {
-                                            if (e.key === "Enter") {
-                                              e.preventDefault();
-                                              e.stopPropagation();
-                                              commitInlineEdit();
-                                            }
-                                            if (e.key === "Escape") setInlineEdit(null);
-                                          }}
-                                        />
-                                        <button type="button" className="inline-icon-btn" onPointerDown={(e) => e.stopPropagation()} onClick={() => commitInlineEdit()} title="Saqlash">✔</button>
-                                        <button type="button" className="inline-icon-btn" onPointerDown={(e) => e.stopPropagation()} onClick={() => setInlineEdit(null)} title="Bekor qilish">✖</button>
-                                      </div>
-                                    ) : (
-                                      formatMoney(p.sell_price)
-                                    )}
+                                    {formatMoney(p.buy_price)}
                                   </td>
                                   <td>
                                     {Number(p.buy_price || 0) > 0
                                       ? (((Number(p.sell_price || 0) - Number(p.buy_price || 0)) / Number(p.buy_price || 0)) * 100).toFixed(1)
                                       : "0.0"}
+                                  </td>
+                                  <td
+                                    className="editable-cell"
+                                    onDoubleClick={(e) => startInlineEdit(p, "sell_price", e)}
+                                  >
+                                    {formatMoney(p.sell_price)}
                                   </td>
                                   <td>{p.stock_qty}</td>
                                   <td>
@@ -2305,11 +2934,25 @@ export default function App() {
                       )}
 
                       {showCategoryModal && (
-                        <div className="form-modal-backdrop" onClick={() => setShowCategoryModal(false)}>
+                        <div
+                          className="form-modal-backdrop"
+                          onClick={() => {
+                            setShowCategoryModal(false);
+                            setCategoryEditingName("");
+                          }}
+                        >
                           <div className="form-modal card" onClick={(e) => e.stopPropagation()}>
                             <div className="row">
-                              <h4>Kategoriya yaratish</h4>
-                              <button type="button" onClick={() => setShowCategoryModal(false)}>X</button>
+                              <h4>{categoryEditingName ? "Kategoriyani tahrirlash" : "Kategoriya yaratish"}</h4>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setShowCategoryModal(false);
+                                  setCategoryEditingName("");
+                                }}
+                              >
+                                X
+                              </button>
                             </div>
                             <form onSubmit={createCategory} className="grid">
                               <label>Nomi</label>
@@ -2338,11 +2981,349 @@ export default function App() {
                                 onChange={(e) => setCategoryForm((s) => ({ ...s, tariff: e.target.value }))}
                               />
 
-                              <button type="submit">Yaratish</button>
+                              <button type="submit">{categoryEditingName ? t.save : "Yaratish"}</button>
                             </form>
                           </div>
                         </div>
                       )}
+                    </>
+                  ) : productsView === "categories" ? (
+                    <>
+                      <div className="card products-head-card">
+                        <h2 className="products-title">Kategoriyalar</h2>
+                        <div className="products-toolbar">
+                          <div className="products-search-wrap">
+                            <span className="products-search-icon" aria-hidden="true">🔍</span>
+                            <input
+                              className="products-search-input"
+                              placeholder="Qidirish..."
+                              value={search}
+                              onChange={(e) => setSearch(e.target.value)}
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            className="products-add-btn"
+                            onClick={() => {
+                              setCategoryEditingName("");
+                              setCategoryForm({ name: "", imageName: "", tariff: "" });
+                              setShowCategoryModal(true);
+                            }}
+                          >
+                            <span className="btn-label-full">+ Yangi kategoriya</span>
+                            <span className="btn-label-short">+ Yangi</span>
+                          </button>
+                        </div>
+                      </div>
+                      <div className="card">
+                        <h4>{t.categories}</h4>
+                        <div className="table-scroll categories-table-wrap">
+                          <table className="categories-table">
+                            <thead>
+                              <tr>
+                                <th>№</th>
+                                <th>Kategoriya</th>
+                                <th>Nomi</th>
+                                <th>Ta'rif</th>
+                                <th>Amallar</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {filteredCategoryRows.map((cat, idx) => (
+                                <tr key={`${cat.name}-${idx}`}>
+                                  <td>{cat.id}</td>
+                                  <td className="category-image-cell">
+                                    {cat.imageName ? <span className="category-thumb">🧺</span> : <span className="muted">-</span>}
+                                  </td>
+                                  <td
+                                    className="editable-cell"
+                                    onDoubleClick={(e) => startCategoryInlineEdit(cat, e)}
+                                  >
+                                    {cat.name}
+                                  </td>
+                                  <td>{cat.tariff || "-"}</td>
+                                  <td>
+                                    <div className="product-actions">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setCategoryEditingName(cat.name);
+                                          setCategoryForm({ name: cat.name, imageName: cat.imageName || "", tariff: cat.tariff || "" });
+                                          setShowCategoryModal(true);
+                                        }}
+                                        title="Tahrirlash"
+                                      >
+                                        ✏
+                                      </button>
+                                      <button type="button" onClick={() => removeCategory(cat)} title="O'chirish">🗑</button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                              {!filteredCategoryRows.length && (
+                                <tr>
+                                  <td colSpan="5" className="muted">Kategoriya topilmadi</td>
+                                </tr>
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </>
+                  ) : productsView === "top" ? (
+                    <>
+                      <div className="card products-head-card">
+                        <h2 className="products-title">Kassa uchun kartochkalar</h2>
+                        <div className="row">
+                          <p className="muted">Sotuvchi uchun tez sotuv tugmalari (mahsulot/toifa) ni shu yerda sozlaysiz.</p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setQuickTileTab("product");
+                              setQuickTileSearch("");
+                              setQuickTileValue("");
+                              setShowQuickTileModal(true);
+                            }}
+                          >
+                            + Qo'shish
+                          </button>
+                        </div>
+                      </div>
+                      <div className="card">
+                        <div className="quick-tiles-grid">
+                          {quickSaleTiles.map((tile) => (
+                            <div
+                              key={tile.id}
+                              className={`quick-tile-card ${tile.type === "category" ? "is-category" : "is-product"}`}
+                              draggable
+                              onDragStart={() => setQuickTileDragId(tile.id)}
+                              onDragOver={(e) => e.preventDefault()}
+                              onDrop={() => {
+                                reorderQuickTiles(quickTileDragId, tile.id);
+                                setQuickTileDragId(null);
+                              }}
+                              onDragEnd={() => setQuickTileDragId(null)}
+                            >
+                              <button type="button" className="quick-tile-handle" title="Joyini almashtirish">⋮⋮</button>
+                              <button
+                                type="button"
+                                className="quick-tile-remove"
+                                onClick={() => removeQuickTile(tile.id)}
+                                title="O'chirish"
+                              >
+                                ×
+                              </button>
+                              <strong>{tile.label}</strong>
+                              <small>{tile.type === "category" ? "Toifa" : "Tovar"}</small>
+                            </div>
+                          ))}
+                          <button
+                            type="button"
+                            className="quick-tile-add"
+                            onClick={() => {
+                              setQuickTileTab("product");
+                              setQuickTileSearch("");
+                              setQuickTileValue("");
+                              setShowQuickTileModal(true);
+                            }}
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+
+                      {showQuickTileModal && (
+                        <div className="form-modal-backdrop" onClick={() => setShowQuickTileModal(false)}>
+                          <div className="quick-tile-modal card" onClick={(e) => e.stopPropagation()}>
+                            <div className="quick-tile-tabs">
+                              <button
+                                type="button"
+                                className={quickTileTab === "product" ? "active" : ""}
+                                onClick={() => {
+                                  setQuickTileTab("product");
+                                  setQuickTileValue("");
+                                }}
+                              >
+                                Tovar
+                              </button>
+                              <button
+                                type="button"
+                                className={quickTileTab === "category" ? "active" : ""}
+                                onClick={() => {
+                                  setQuickTileTab("category");
+                                  setQuickTileValue("");
+                                }}
+                              >
+                                Toifa
+                              </button>
+                            </div>
+                            <input
+                              placeholder="Qidirish..."
+                              value={quickTileSearch}
+                              onChange={(e) => setQuickTileSearch(e.target.value)}
+                            />
+                            <select
+                              value={quickTileValue}
+                              onChange={(e) => setQuickTileValue(e.target.value)}
+                            >
+                              <option value="">Tanlang...</option>
+                              {(quickTileTab === "product"
+                                ? products
+                                    .filter((p) => String(p.name || "").toLowerCase().includes(quickTileSearch.toLowerCase()))
+                                    .map((p) => ({ value: String(p.id), label: `${p.name} (${Math.round(Number(p.sell_price || 0))})` }))
+                                : productCategories
+                                    .filter((c) => String(c).toLowerCase().includes(quickTileSearch.toLowerCase()))
+                                    .map((c) => ({ value: c, label: c }))
+                              ).map((item) => (
+                                <option key={item.value} value={item.value}>{item.label}</option>
+                              ))}
+                            </select>
+                            <button type="button" onClick={addQuickTile} disabled={!quickTileValue}>
+                              Saqlash
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  ) : productsView === "labels" ? (
+                    <>
+                      <div className="card products-head-card">
+                        <div className="weight-toolbar">
+                          <div className="products-search-wrap">
+                            <span className="products-search-icon" aria-hidden="true">🔍</span>
+                            <input
+                              className="products-search-input"
+                              placeholder="Qidirish..."
+                              value={labelPrintSearch}
+                              onChange={(e) => setLabelPrintSearch(e.target.value)}
+                            />
+                          </div>
+                          <select
+                            className="weight-scale-select"
+                            value={activeLabelTemplateId}
+                            onChange={(e) => setActiveLabelTemplateId(e.target.value)}
+                          >
+                            {labelTemplates.map((tpl) => (
+                              <option key={tpl.id} value={tpl.id}>{tpl.name}</option>
+                            ))}
+                          </select>
+                          <input
+                            type="number"
+                            min="1"
+                            value={labelPrintRowsPerLine}
+                            onChange={(e) => setLabelPrintRowsPerLine(Math.max(1, Number(e.target.value || 1)))}
+                            style={{ width: 80 }}
+                            title="Bir qatorda"
+                          />
+                          <button type="button" onClick={() => setLabelPrintQty({})}>Tozalash</button>
+                          <button type="button" onClick={() => setShowLabelPrintPreview(true)}>🖨 Tayyor</button>
+                        </div>
+                      </div>
+                      <div className="card table-scroll">
+                        <table>
+                          <thead>
+                            <tr>
+                              <th>№</th>
+                              <th>Nomi</th>
+                              <th>Narxi</th>
+                              <th>Barkod</th>
+                              <th>SKU</th>
+                              <th>Soni</th>
+                              <th>O'chirish</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {labelPrintProducts.map((p, idx) => (
+                              <tr key={`lp-${p.id}`}>
+                                <td>{idx + 1}</td>
+                                <td>{p.name}</td>
+                                <td>{Math.round(Number(p.sell_price || 0)).toLocaleString("ru-RU")}</td>
+                                <td>{p.barcode || "-"}</td>
+                                <td>{p.artikul || "-"}</td>
+                                <td>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="1"
+                                    value={labelPrintQty[p.id] ?? 0}
+                                    onChange={(e) =>
+                                      setLabelPrintQty((prev) => ({
+                                        ...prev,
+                                        [p.id]: Math.max(0, Number(e.target.value || 0)),
+                                      }))
+                                    }
+                                    style={{ width: 72 }}
+                                  />
+                                </td>
+                                <td>
+                                  <button
+                                    type="button"
+                                    onClick={() => setLabelPrintQty((prev) => ({ ...prev, [p.id]: 0 }))}
+                                  >
+                                    🗑
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  ) : productsView === "weight" ? (
+                    <>
+                      <div className="card products-head-card">
+                        <div className="weight-toolbar">
+                          <div className="products-search-wrap">
+                            <span className="products-search-icon" aria-hidden="true">🔍</span>
+                            <input
+                              className="products-search-input"
+                              placeholder="Qidirish..."
+                              value={weightSearch}
+                              onChange={(e) => setWeightSearch(e.target.value)}
+                            />
+                          </div>
+                          <select
+                            className="weight-scale-select"
+                            value={scaleName}
+                            onChange={(e) => setScaleName(e.target.value)}
+                          >
+                            <option value="IFTIQOR 80">IFTIQOR 80</option>
+                            <option value="QASHQAR 20">QASHQAR 20</option>
+                            <option value="SCALE">SCALE</option>
+                          </select>
+                          <button type="button" onClick={exportWeightProducts}>Eksport</button>
+                          <button type="button" onClick={uploadScaleText}>Yuklash</button>
+                        </div>
+                      </div>
+                      <div className="card table-scroll">
+                        <table>
+                          <thead>
+                            <tr>
+                              <th>№</th>
+                              <th>Tarozi kodi</th>
+                              <th>Nomi</th>
+                              <th>Toifa</th>
+                              <th>Narxi</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {weightProducts.map((p, idx) => (
+                              <tr key={`w-${p.id}-${idx}`}>
+                                <td>{idx + 1}</td>
+                                <td>{p.artikul || p.id}</td>
+                                <td>{p.name}</td>
+                                <td>{p.category || "-"}</td>
+                                <td>{Math.round(Number(p.sell_price || 0)).toLocaleString("ru-RU")}</td>
+                              </tr>
+                            ))}
+                            {!weightProducts.length && (
+                              <tr>
+                                <td colSpan="5" className="muted">kg tovarlar topilmadi</td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
                     </>
                   ) : (
                     <div className="card">
@@ -2350,6 +3331,238 @@ export default function App() {
                       <p className="muted">Этот раздел в доработке</p>
                     </div>
                   )}
+                </div>
+              )}
+
+              {categoryQuickEdit && (
+                <div className="category-quick-backdrop">
+                  <div
+                    ref={categoryQuickPopoverRef}
+                    className="category-quick-modal card"
+                    style={{ top: `${categoryQuickEdit.top}px`, left: `${categoryQuickEdit.left}px` }}
+                  >
+                    <input
+                      autoFocus
+                      value={categoryQuickEdit.value}
+                      onChange={(e) => setCategoryQuickEdit((s) => ({ ...s, value: e.target.value }))}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") commitCategoryInlineEdit();
+                        if (e.key === "Escape") setCategoryQuickEdit(null);
+                      }}
+                    />
+                    <div className="center-warning-actions">
+                      <button type="button" onClick={() => setCategoryQuickEdit(null)}>Bekor qilish</button>
+                      <button type="button" onClick={() => commitCategoryInlineEdit()}>Saqlash</button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {inlineEdit && (
+                <div className="category-quick-backdrop">
+                  <div
+                    ref={productQuickPopoverRef}
+                    className="product-quick-modal card"
+                    style={{ top: `${inlineEdit.top}px`, left: `${inlineEdit.left}px` }}
+                  >
+                    <input
+                      autoFocus
+                      type={inlineEdit.field === "name" ? "text" : "text"}
+                      inputMode={inlineEdit.field === "name" ? "text" : "decimal"}
+                      value={inlineEdit.value}
+                      onChange={(e) => setInlineEdit((s) => ({ ...s, value: e.target.value }))}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") commitInlineEdit();
+                        if (e.key === "Escape") setInlineEdit(null);
+                      }}
+                    />
+                    <div className="center-warning-actions">
+                      <button type="button" onClick={() => setInlineEdit(null)}>Bekor qilish</button>
+                      <button type="button" onClick={() => commitInlineEdit()}>Saqlash</button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {showLabelTemplateEditor && labelTemplateDraft && (
+                <div className="form-modal-backdrop" onClick={() => setShowLabelTemplateEditor(false)}>
+                  <div className="label-editor-modal card" onClick={(e) => e.stopPropagation()}>
+                    <div className="row">
+                      <h4>{labelTemplates.some((x) => x.id === labelTemplateDraft.id) ? "Cennikni tahrirlash" : "Yangi cennik"}</h4>
+                      <button type="button" onClick={saveLabelTemplate}>
+                        {labelTemplates.some((x) => x.id === labelTemplateDraft.id) ? "Saqlash" : "Yaratish"}
+                      </button>
+                    </div>
+                    <div className="label-editor-top">
+                      <input value={labelTemplateDraft.name} onChange={(e) => setLabelTemplateDraft((s) => ({ ...s, name: e.target.value }))} />
+                      <input type="number" value={labelTemplateDraft.width} onChange={(e) => setLabelTemplateDraft((s) => ({ ...s, width: Number(e.target.value || 0) }))} />
+                      <input type="number" value={labelTemplateDraft.height} onChange={(e) => setLabelTemplateDraft((s) => ({ ...s, height: Number(e.target.value || 0) }))} />
+                    </div>
+                    <div className="label-editor-body">
+                      <div className="label-editor-side">
+                        <h5>Cennik elementlari</h5>
+                        {[
+                          ["name", "Nomi"],
+                          ["price", "Narxi"],
+                          ["artikul", "Artikul"],
+                          ["barcode", "Barkod"],
+                          ["logo", "Logo"],
+                          ["custom1", "Maxsus matn"],
+                          ["custom2", "Maxsus matn 2"],
+                        ].map(([key, title]) => (
+                          <label key={key}>
+                            <input
+                              type="checkbox"
+                              checked={Boolean(labelTemplateDraft.show[key])}
+                              onChange={(e) =>
+                                setLabelTemplateDraft((s) => ({
+                                  ...s,
+                                  show: { ...s.show, [key]: e.target.checked },
+                                }))
+                              }
+                            />
+                            {" "}
+                            {title}
+                          </label>
+                        ))}
+                        <h5>Shrift sozlamalari</h5>
+                        <label>O'lcham</label>
+                        <input type="number" value={labelTemplateDraft.font.size} onChange={(e) => setLabelTemplateDraft((s) => ({ ...s, font: { ...s.font, size: Number(e.target.value || 12) } }))} />
+                        <label>Qalinlik</label>
+                        <select value={labelTemplateDraft.font.weight} onChange={(e) => setLabelTemplateDraft((s) => ({ ...s, font: { ...s.font, weight: Number(e.target.value) } }))}>
+                          <option value="300">300</option>
+                          <option value="500">500</option>
+                          <option value="700">700</option>
+                          <option value="800">800</option>
+                        </select>
+                        <label>Joylashuv</label>
+                        <select value={labelTemplateDraft.font.align} onChange={(e) => setLabelTemplateDraft((s) => ({ ...s, font: { ...s.font, align: e.target.value } }))}>
+                          <option value="left">Chap</option>
+                          <option value="center">Markaz</option>
+                          <option value="right">O'ng</option>
+                        </select>
+                        <label>Taxminiy matn</label>
+                        <input value={labelTemplateDraft.font.sampleText} onChange={(e) => setLabelTemplateDraft((s) => ({ ...s, font: { ...s.font, sampleText: e.target.value } }))} />
+                      </div>
+                      <div className="label-editor-preview-wrap">
+                        <div className="label-editor-canvas">
+                          <div
+                            ref={labelPreviewRef}
+                            className="label-preview-box"
+                            style={{
+                              width: `${Math.max(120, Number(labelTemplateDraft.width || 58) * 4)}px`,
+                              minHeight: `${Math.max(80, Number(labelTemplateDraft.height || 40) * 4)}px`,
+                            }}
+                          >
+                            {labelTemplateDraft.show.name ? (
+                              <strong
+                                className="label-preview-item draggable"
+                                style={{
+                                  left: `${labelTemplateDraft?.font?.positions?.name?.x ?? 8}px`,
+                                  top: `${labelTemplateDraft?.font?.positions?.name?.y ?? 8}px`,
+                                  fontWeight: labelTemplateDraft.font.weight,
+                                  textAlign: labelTemplateDraft.font.align,
+                                }}
+                                onPointerDown={(e) => {
+                                  const rect = e.currentTarget.getBoundingClientRect();
+                                  setLabelDragState({
+                                    key: "name",
+                                    offsetX: e.clientX - rect.left,
+                                    offsetY: e.clientY - rect.top,
+                                  });
+                                }}
+                              >
+                                Kungaboqar yog'i / laska
+                              </strong>
+                            ) : null}
+                            {labelTemplateDraft.show.price ? (
+                              <b
+                                className="label-preview-item draggable"
+                                style={{
+                                  left: `${labelTemplateDraft?.font?.positions?.price?.x ?? 8}px`,
+                                  top: `${labelTemplateDraft?.font?.positions?.price?.y ?? 42}px`,
+                                  fontSize: `${labelTemplateDraft.font.size}px`,
+                                  fontWeight: labelTemplateDraft.font.weight,
+                                  textAlign: labelTemplateDraft.font.align,
+                                }}
+                                onPointerDown={(e) => {
+                                  const rect = e.currentTarget.getBoundingClientRect();
+                                  setLabelDragState({
+                                    key: "price",
+                                    offsetX: e.clientX - rect.left,
+                                    offsetY: e.clientY - rect.top,
+                                  });
+                                }}
+                              >
+                                {labelTemplateDraft.font.sampleText}
+                              </b>
+                            ) : null}
+                            {labelTemplateDraft.show.barcode ? (
+                              <span
+                                className="label-preview-item draggable mono"
+                                style={{
+                                  left: `${labelTemplateDraft?.font?.positions?.barcode?.x ?? 8}px`,
+                                  top: `${labelTemplateDraft?.font?.positions?.barcode?.y ?? 94}px`,
+                                }}
+                                onPointerDown={(e) => {
+                                  const rect = e.currentTarget.getBoundingClientRect();
+                                  setLabelDragState({
+                                    key: "barcode",
+                                    offsetX: e.clientX - rect.left,
+                                    offsetY: e.clientY - rect.top,
+                                  });
+                                }}
+                              >
+                                ||||||||||||
+                              </span>
+                            ) : null}
+                            {labelTemplateDraft.show.artikul ? (
+                              <small
+                                className="label-preview-item draggable"
+                                style={{
+                                  left: `${labelTemplateDraft?.font?.positions?.artikul?.x ?? 184}px`,
+                                  top: `${labelTemplateDraft?.font?.positions?.artikul?.y ?? 96}px`,
+                                }}
+                                onPointerDown={(e) => {
+                                  const rect = e.currentTarget.getBoundingClientRect();
+                                  setLabelDragState({
+                                    key: "artikul",
+                                    offsetX: e.clientX - rect.left,
+                                    offsetY: e.clientY - rect.top,
+                                  });
+                                }}
+                              >
+                                182301
+                              </small>
+                            ) : null}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {showLabelPrintPreview && (
+                <div className="form-modal-backdrop" onClick={() => setShowLabelPrintPreview(false)}>
+                  <div className="label-print-modal card" onClick={(e) => e.stopPropagation()}>
+                    <div className="row">
+                      <button type="button" onClick={() => window.print()}>🖨</button>
+                      <button type="button" onClick={() => setShowLabelPrintPreview(false)}>X</button>
+                    </div>
+                    <div className="label-print-sheet" style={{ gridTemplateColumns: `repeat(${Math.max(1, Number(labelPrintRowsPerLine || 1))}, minmax(120px, 1fr))` }}>
+                      {labelPrintSelectedRows.flatMap((row) =>
+                        Array.from({ length: row.qty }).map((_, i) => (
+                          <div key={`print-${row.product.id}-${i}`} className="label-print-item">
+                            {activeLabelTemplate?.show?.name ? <strong>{row.product.name}</strong> : null}
+                            {activeLabelTemplate?.show?.price ? <b>{Math.round(Number(row.product.sell_price || 0)).toLocaleString("ru-RU")}</b> : null}
+                            {activeLabelTemplate?.show?.barcode ? <span>||||||||||||</span> : null}
+                            {activeLabelTemplate?.show?.artikul ? <small>{row.product.artikul || row.product.id}</small> : null}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -2587,32 +3800,72 @@ export default function App() {
               )}
 
               {adminSection === "settings" && (
-                <div className="grid settings-grid">
-                  <h3>{t.menuSettings}</h3>
-                  <label>{t.theme}</label>
-                  <div className="theme-picker">
-                    <button
-                      type="button"
-                      className={`theme-btn ${theme === "light" ? "active" : ""}`}
-                      onClick={() => setTheme("light")}
-                      aria-label={t.light}
-                    >
-                      ☀️
-                    </button>
-                    <button
-                      type="button"
-                      className={`theme-btn ${theme === "dark" ? "active" : ""}`}
-                      onClick={() => setTheme("dark")}
-                      aria-label={t.dark}
-                    >
-                      🌙
-                    </button>
+                <div className="grid">
+                  <div className="settings-tiles">
+                    <button type="button" className={`settings-tile ${settingsView === "general" ? "active" : ""}`} onClick={() => setSettingsView("general")}>Asosiy sozlamalar</button>
+                    <button type="button" className={`settings-tile ${settingsView === "labels" ? "active" : ""}`} onClick={() => setSettingsView("labels")}>Narx belgilari</button>
                   </div>
-                  <label>Language</label>
-                  <select value={lang} onChange={(e) => setLang(e.target.value)}>
-                    <option value="ru">🇷🇺 RU</option>
-                    <option value="uz">🇺🇿 UZ</option>
-                  </select>
+                  {settingsView === "general" ? (
+                    <div className="grid settings-grid">
+                      <h3>{t.menuSettings}</h3>
+                      <label>{t.theme}</label>
+                      <div className="theme-picker">
+                        <button
+                          type="button"
+                          className={`theme-btn ${theme === "light" ? "active" : ""}`}
+                          onClick={() => setTheme("light")}
+                          aria-label={t.light}
+                        >
+                          ☀️
+                        </button>
+                        <button
+                          type="button"
+                          className={`theme-btn ${theme === "dark" ? "active" : ""}`}
+                          onClick={() => setTheme("dark")}
+                          aria-label={t.dark}
+                        >
+                          🌙
+                        </button>
+                      </div>
+                      <label>Language</label>
+                      <select value={lang} onChange={(e) => setLang(e.target.value)}>
+                        <option value="ru">🇷🇺 RU</option>
+                        <option value="uz">🇺🇿 UZ</option>
+                      </select>
+                    </div>
+                  ) : (
+                    <div className="card">
+                      <div className="row">
+                        <h4>Narx belgilari</h4>
+                        <button type="button" onClick={openCreateLabelTemplate}>Yaratish</button>
+                      </div>
+                      <div className="table-scroll">
+                        <table>
+                          <thead>
+                            <tr><th>№</th><th>Ko'rinishi</th><th>Nomi</th><th>Amallar</th></tr>
+                          </thead>
+                          <tbody>
+                            {labelTemplates.map((tpl, idx) => (
+                              <tr key={tpl.id}>
+                                <td>{idx + 1}</td>
+                                <td>
+                                  <div className="label-template-thumb">
+                                    <strong style={{ fontSize: 10 }}>{tpl.show.name ? "Kungaboqar yog'i" : ""}</strong>
+                                    <b style={{ fontSize: 16, fontWeight: tpl.font.weight }}>{tpl.show.price ? tpl.font.sampleText : ""}</b>
+                                    <span style={{ fontSize: 10 }}>{tpl.show.barcode ? "|||||||||" : ""}</span>
+                                  </div>
+                                </td>
+                                <td>{tpl.name}</td>
+                                <td>
+                                  <button type="button" onClick={() => openEditLabelTemplate(tpl)}>✏</button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

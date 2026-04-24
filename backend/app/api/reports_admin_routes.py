@@ -14,7 +14,8 @@ from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.models.entities import AuditLog, Expense, Product, Return, Sale, SaleItem, Shift, StockMovement
+from app.models.entities import AuditLog, Expense, LabelTemplate, Product, Return, Sale, SaleItem, Shift, StockMovement
+from app.schemas.ops import LabelTemplateCreate, LabelTemplateOut, LabelTemplateUpdate
 
 router = APIRouter()
 
@@ -184,3 +185,39 @@ def list_audit_logs(db: Session = Depends(get_db), limit: int = 200):
     """Read recent audit events."""
     safe_limit = max(1, min(limit, 1000))
     return db.scalars(select(AuditLog).order_by(desc(AuditLog.created_at)).limit(safe_limit)).all()
+
+
+@router.get("/settings/label-templates", response_model=list[LabelTemplateOut])
+def list_label_templates(db: Session = Depends(get_db)):
+    return db.scalars(select(LabelTemplate).order_by(LabelTemplate.updated_at.desc(), LabelTemplate.id.desc())).all()
+
+
+@router.post("/settings/label-templates", response_model=LabelTemplateOut)
+def create_label_template(payload: LabelTemplateCreate, db: Session = Depends(get_db)):
+    obj = LabelTemplate(**payload.model_dump())
+    db.add(obj)
+    db.commit()
+    db.refresh(obj)
+    return obj
+
+
+@router.patch("/settings/label-templates/{template_id}", response_model=LabelTemplateOut)
+def update_label_template(template_id: int, payload: LabelTemplateUpdate, db: Session = Depends(get_db)):
+    obj = db.get(LabelTemplate, template_id)
+    if not obj:
+        raise HTTPException(status_code=404, detail="Label template not found")
+    for key, value in payload.model_dump(exclude_unset=True).items():
+        setattr(obj, key, value)
+    db.commit()
+    db.refresh(obj)
+    return obj
+
+
+@router.delete("/settings/label-templates/{template_id}")
+def delete_label_template(template_id: int, db: Session = Depends(get_db)):
+    obj = db.get(LabelTemplate, template_id)
+    if not obj:
+        raise HTTPException(status_code=404, detail="Label template not found")
+    db.delete(obj)
+    db.commit()
+    return {"ok": True, "id": template_id}

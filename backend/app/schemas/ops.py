@@ -87,3 +87,36 @@ class ExportFilter(BaseModel):
     @classmethod
     def normalize_day(cls, value: datetime | None) -> datetime | None:
         return value
+
+
+class LabelTemplateBase(BaseModel):
+    name: str = Field(..., min_length=2, max_length=120)
+    width: int = Field(58, ge=20, le=500)
+    height: int = Field(40, ge=20, le=500)
+    format_price: bool = False
+    price_suffix: str = Field(default="", max_length=80)
+    show: dict = Field(default_factory=dict)
+    font: dict = Field(default_factory=dict)
+
+
+class LabelTemplateCreate(LabelTemplateBase):
+    pass
+
+
+class LabelTemplateUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=2, max_length=120)
+    width: int | None = Field(default=None, ge=20, le=500)
+    height: int | None = Field(default=None, ge=20, le=500)
+    format_price: bool | None = None
+    price_suffix: str | None = Field(default=None, max_length=80)
+    show: dict | None = None
+    font: dict | None = None
+
+
+class LabelTemplateOut(LabelTemplateBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True

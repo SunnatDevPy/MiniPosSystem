@@ -44,6 +44,10 @@ export const api = {
   createExpense: (payload) => request("/expenses", { method: "POST", body: JSON.stringify(payload) }),
   auditLogs: (limit = 200) => request(`/audit/logs?limit=${limit}`),
   createBackup: () => request("/admin/backup", { method: "POST" }),
+  listLabelTemplates: () => request("/settings/label-templates"),
+  createLabelTemplate: (payload) => request("/settings/label-templates", { method: "POST", body: JSON.stringify(payload) }),
+  updateLabelTemplate: (templateId, payload) => request(`/settings/label-templates/${templateId}`, { method: "PATCH", body: JSON.stringify(payload) }),
+  deleteLabelTemplate: (templateId) => request(`/settings/label-templates/${templateId}`, { method: "DELETE" }),
   dailyReport: () => request("/reports/daily"),
   dashboardReport: () => request("/reports/dashboard"),
   salesStats: (fromDt, toDt) =>
