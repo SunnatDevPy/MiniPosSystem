@@ -472,8 +472,8 @@ td {
 }
 
 .stock-alert-chip {
-  border: 1px solid #f59e0b;
-  color: #f59e0b;
+  border: 1px solid color-mix(in srgb, var(--border), #9ca3af 20%);
+  color: color-mix(in srgb, var(--text), #9ca3af 20%);
   border-radius: 999px;
   padding: 4px 10px;
   font-size: 12px;
@@ -508,10 +508,94 @@ td {
   text-align: center;
   border-radius: 10px;
   font-size: 12px;
+  border: 1px solid color-mix(in srgb, var(--primary), #ffffff 20%);
+  transition: transform 0.12s ease, box-shadow 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
 }
 
 .subtab-btn.active {
   background: color-mix(in srgb, var(--primary), #000000 12%);
+  border-color: color-mix(in srgb, var(--primary), #ffffff 38%);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary), transparent 55%), 0 10px 22px rgba(0, 0, 0, 0.22);
+}
+
+.subtab-btn:hover {
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
+}
+
+.subtab-btn:active {
+  transform: translateY(1px) scale(0.985);
+}
+
+.menu-item {
+  position: relative;
+  transition: transform 0.12s ease, box-shadow 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.menu-item.active {
+  border-color: color-mix(in srgb, var(--primary), #ffffff 38%);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary), transparent 55%), 0 10px 22px rgba(0, 0, 0, 0.22);
+}
+
+.menu-item.active::after {
+  content: "";
+  position: absolute;
+  right: 4px;
+  top: 4px;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #22c55e;
+  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.28);
+}
+
+.menu-item:active {
+  transform: translateY(1px) scale(0.985);
+}
+
+.warehouse-subtabs-head {
+  background: color-mix(in srgb, var(--card), #000000 8%);
+  border-color: var(--border);
+}
+
+.warehouse-subtabs-grid {
+  grid-template-columns: repeat(auto-fit, minmax(170px, 170px));
+  gap: 12px;
+}
+
+.warehouse-subtab-btn {
+  width: 170px;
+  height: 86px;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--primary), #ffffff 10%);
+}
+
+.warehouse-subtab-btn > span {
+  font-size: 20px;
+}
+
+.products-subtabs-head {
+  background: color-mix(in srgb, var(--card), #000000 8%);
+  border-color: var(--border);
+}
+
+.products-subtabs-grid {
+  grid-template-columns: repeat(auto-fit, minmax(170px, 170px));
+  gap: 12px;
+}
+
+.products-subtab-btn {
+  width: 170px;
+  height: 86px;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--primary), #ffffff 10%);
+}
+
+.products-subtab-btn > span {
+  font-size: 20px;
 }
 
 .sales-filter-row {
@@ -963,13 +1047,14 @@ td {
 
 .pos-cat-card {
   min-height: 32px;
-  background: #2196f3;
-  border-color: #2196f3;
+  background: color-mix(in srgb, var(--card), #d1d5db 18%);
+  border-color: color-mix(in srgb, var(--border), #9ca3af 22%);
+  color: var(--text);
 }
 
 .pos-cat-card.active {
-  background: #1565c0;
-  border-color: #1565c0;
+  background: color-mix(in srgb, var(--card), #9ca3af 28%);
+  border-color: color-mix(in srgb, var(--border), #6b7280 40%);
 }
 
 .pos-quick-products {
@@ -981,8 +1066,9 @@ td {
 .pos-product-card {
   min-height: 72px;
   border-radius: 10px;
-  background: #4caf50;
-  border-color: #4caf50;
+  background: color-mix(in srgb, var(--card), #d1d5db 14%);
+  border-color: color-mix(in srgb, var(--border), #9ca3af 22%);
+  color: var(--text);
   display: grid;
   align-content: space-between;
   text-align: left;
@@ -996,13 +1082,57 @@ td {
 }
 
 .pos-category-card {
-  background: #2196f3;
-  border-color: #2196f3;
+  background: color-mix(in srgb, var(--card), #cbd5e1 20%);
+  border-color: color-mix(in srgb, var(--border), #9ca3af 24%);
 }
 
 .pos-category-card.active {
-  background: #1565c0;
-  border-color: #1565c0;
+  background: color-mix(in srgb, var(--card), #9ca3af 28%);
+  border-color: color-mix(in srgb, var(--border), #6b7280 40%);
+}
+
+.product-list-table thead th {
+  background: color-mix(in srgb, var(--card), #e5e7eb 22%);
+}
+
+.product-list-table tbody tr:nth-child(even) {
+  background: color-mix(in srgb, var(--card), #e5e7eb 35%);
+}
+
+.warehouse-stats-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+}
+
+.warehouse-receive-head {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.warehouse-receive-head input {
+  flex: 1;
+}
+
+.warehouse-create-modal {
+  width: min(1180px, 96vw);
+  max-height: 92vh;
+  padding: 18px;
+}
+
+.warehouse-product-search-list {
+  max-height: 220px;
+}
+
+.warehouse-product-search-list td:last-child {
+  width: 70px;
+  text-align: right;
+}
+
+.qty-negative {
+  color: #ef4444;
+  font-weight: 700;
 }
 
 .categories-table-wrap {

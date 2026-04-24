@@ -1,520 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api } from "./api";
+import { api } from "./shared/api/client";
+import BrandLogo from "./shared/ui/BrandLogo";
+import LoadingScreen from "./shared/ui/LoadingScreen";
+import SalesLineChart from "./shared/ui/charts/SalesLineChart";
+import { demoDailyReport, demoDashboard, demoProducts, demoSales, demoSalesStats, demoShifts } from "./shared/lib/demoData";
+import { printReceipt } from "./shared/lib/receipt";
+import CashierSection from "./features/cashier/CashierSection";
+import AdminShell from "./features/admin/AdminShell";
 import "./App.css";
 
-const I18N = {
-  ru: {
-    title: "OkaPos",
-    subtitle: "Умная POS-система для магазина",
-    login: "Вход",
-    chooseRole: "Выберите профессию",
-    role: "Роль",
-    password: "Пароль",
-    accessPassword: "Код доступа",
-    signIn: "Войти",
-    admin: "Админ",
-    cashier: "Кассир",
-    logout: "Выход",
-    theme: "Тема",
-    dark: "Темная",
-    light: "Светлая",
-    loading: "Загрузка...",
-    modeCashier: "Касса",
-    modeAdmin: "Админка",
-    search: "Поиск по названию, артикулу, штрихкоду",
-    quickProducts: "Популярные товары",
-    returnMode: "Режим возврата",
-    discount: "Скидка %",
-    markup: "Наценка %",
-    add: "Добавить",
-    checkout: "Пробить чек",
-    print: "Печать",
-    shift: "Смена",
-    cart: "Корзина",
-    empty: "Пусто",
-    total: "Итого",
-    product: "Товар",
-    qty: "Кол-во",
-    price: "Цена",
-    line: "Сумма",
-    action: "Действие",
-    remove: "Удалить",
-    report: "Отчет за день",
-    createProduct: "Создать товар",
-    adjustStock: "Корректировка остатков",
-    products: "Товары",
-    save: "Сохранить",
-    apply: "Применить",
-    selectProduct: "Выберите товар",
-    adminWorkspace: "Панель управления",
-    menuReports: "Учеты",
-    menuWarehouse: "Склад",
-    menuProducts: "Товары",
-    menuFinance: "Поставщики и долги",
-    menuStaff: "Смена и расходы",
-    menuReturns: "Возвраты",
-    menuAudit: "Аудит и бэкап",
-    menuSettings: "Настройки",
-    collapseMenu: "Свернуть",
-    expandMenu: "Развернуть",
-    closeMenu: "Закрыть",
-    openMenu: "Открыть меню",
-    supplier: "Поставщик",
-    amount: "Сумма",
-    note: "Комментарий",
-    addRecord: "Добавить запись",
-    noRecords: "Пока нет записей",
-    employees: "Список работников",
-    todaySales: "Продажи сегодня",
-    todayRevenue: "Выручка сегодня",
-    avgCheck: "Средний чек",
-    totalProducts: "Всего товаров",
-    lowStockItems: "Мало на складе",
-    noStockItems: "Нет в наличии",
-    recentSales: "Последние продажи",
-    stockMoves: "Движения склада",
-    reason: "Причина",
-    adjustment: "Корректировка",
-    incoming: "Поступление",
-    writeoff: "Списание",
-    saleOp: "Продажа",
-    purchases: "Закупки",
-    createSupplier: "Добавить поставщика",
-    createPurchase: "Создать закупку",
-    openShift: "Открыть смену",
-    closeShift: "Закрыть смену",
-    openingCash: "Начальная касса",
-    closingCash: "Закрывающая касса",
-    expense: "Расход",
-    category: "Категория",
-    createExpense: "Добавить расход",
-    returns: "Возвраты",
-    createReturn: "Оформить возврат",
-    saleId: "ID продажи",
-    auditLogs: "Журнал действий",
-    backupDb: "Бэкап БД",
-    makeBackup: "Создать бэкап",
-    exportExcel: "Экспорт Excel",
-    exportPdf: "Экспорт PDF",
-    createdBy: "Кем создано",
-    reportsMenu: "Меню учетов",
-    productsMenu: "Меню товаров",
-    warehouseMenu: "Склад",
-    staffMenu: "Рабочие",
-    salesReport: "Отчет продаж",
-    checks: "Чеки",
-    shiftReport: "Смена",
-    inventoryEval: "Инвентаризация",
-    salesHistory: "История продаж",
-    categories: "Категории",
-    topSales: "Топ продаж",
-    weightProducts: "Весовые товары",
-    labelPrint: "Печать ценников",
-    serialProducts: "Серийные товары",
-    priceHistory: "История цен",
-    supplierPayment: "Платеж поставщику",
-    supplierReport: "Отчет поставщиков",
-    from: "От",
-    to: "До",
-    byPayment: "Продажи по оплатам",
-    byHour: "Продажи по часам",
-    byWeekday: "Продажи по дням недели",
-    applyFilter: "Применить фильтр",
-    totalSalesAmount: "Общая сумма продаж",
-    totalSalesCost: "Себестоимость продаж",
-    totalPayments: "Общие оплаты",
-    income: "Доход",
-    totalSalesChecks: "Количество чеков продаж",
-    totalReturnsAmount: "Сумма возвратов",
-    totalReturnsCost: "Себестоимость возвратов",
-    returnedItems: "Возвращено товаров",
-    expenseOut: "Расход",
-    totalReturnChecks: "Количество чеков возврата",
-    working: "Работает",
-    closed: "Закрыто",
-    shiftInfo: "Информация о смене",
-    openedAt: "Открыта",
-    closedAt: "Закрыта",
-    openedBy: "Открыл",
-    closedBy: "Закрыл",
-    posDevice: "POS устройство",
-    shiftSales: "Продажи в смене",
-    shiftTransactions: "Транзакции в смене",
-    inventoryTotalSell: "Общая продажная сумма",
-    inventoryTotalCost: "Общая себестоимость",
-    inventoryProfit: "Потенциальная прибыль",
-    inventoryWeightType: "Весовой товар",
-    inventoryCurrentQty: "Сейчас в наличии",
-    inventoryCurrentAmount: "Сумма сейчас",
-    inventoryIfSold: "Сумма при продаже",
-    chooseImage: "Выбрать изображение",
-    noFileChosen: "Файл не выбран",
-  },
-  uz: {
-    title: "OkaPos",
-    subtitle: "Do'kon uchun aqlli POS tizimi",
-    login: "Kirish",
-    chooseRole: "Kasbni tanlang",
-    role: "Rol",
-    password: "Parol",
-    accessPassword: "Kirish kodi",
-    signIn: "Kirish",
-    admin: "Admin",
-    cashier: "Kassir",
-    logout: "Chiqish",
-    theme: "Mavzu",
-    dark: "Qorong'i",
-    light: "Yorug'",
-    loading: "Yuklanmoqda...",
-    modeCashier: "Kassa",
-    modeAdmin: "Admin panel",
-    search: "Nomi, artikul yoki shtrixkod bo'yicha qidirish",
-    quickProducts: "Ommabop mahsulotlar",
-    returnMode: "Qaytarish rejimi",
-    discount: "Chegirma %",
-    markup: "Ustama %",
-    add: "Qo'shish",
-    checkout: "Chek yopish",
-    print: "Chop etish",
-    shift: "Smena",
-    cart: "Savat",
-    empty: "Bo'sh",
-    total: "Jami",
-    product: "Mahsulot",
-    qty: "Miqdor",
-    price: "Narx",
-    line: "Summa",
-    action: "Amal",
-    remove: "O'chirish",
-    report: "Kunlik hisobot",
-    createProduct: "Yangi mahsulot",
-    adjustStock: "Qoldiqni tuzatish",
-    products: "Mahsulotlar",
-    save: "Saqlash",
-    apply: "Qo'llash",
-    selectProduct: "Mahsulotni tanlang",
-    adminWorkspace: "Boshqaruv paneli",
-    menuReports: "Hisobotlar",
-    menuWarehouse: "Ombor",
-    menuProducts: "Tovarlar",
-    menuFinance: "Moliya - Yetkazib beruvchi va qarzlar",
-    menuStaff: "Smena va xarajatlar",
-    menuReturns: "Qaytarishlar",
-    menuAudit: "Audit va backup",
-    menuSettings: "Sozlamar",
-    collapseMenu: "Yig'ish",
-    expandMenu: "Yoyish",
-    closeMenu: "Yopish",
-    openMenu: "Menyuni ochish",
-    supplier: "Yetkazib beruvchi",
-    amount: "Summa",
-    note: "Izoh",
-    addRecord: "Yozuv qo'shish",
-    noRecords: "Hozircha yozuvlar yo'q",
-    employees: "Xodimlar ro'yxati",
-    todaySales: "Bugungi savdolar",
-    todayRevenue: "Bugungi tushum",
-    avgCheck: "O'rtacha chek",
-    totalProducts: "Jami mahsulot",
-    lowStockItems: "Kam qolganlar",
-    noStockItems: "Qolmaganlar",
-    recentSales: "So'nggi savdolar",
-    stockMoves: "Ombor harakatlari",
-    reason: "Sabab",
-    adjustment: "Tuzatish",
-    incoming: "Kirim",
-    writeoff: "Chiqim",
-    saleOp: "Savdo",
-    purchases: "Xaridlar",
-    createSupplier: "Yetkazib beruvchi qo'shish",
-    createPurchase: "Xarid yaratish",
-    openShift: "Smenani ochish",
-    closeShift: "Smenani yopish",
-    openingCash: "Boshlang'ich kassa",
-    closingCash: "Yakuniy kassa",
-    expense: "Xarajat",
-    category: "Kategoriya",
-    createExpense: "Xarajat qo'shish",
-    returns: "Qaytarishlar",
-    createReturn: "Qaytarishni rasmiylash",
-    saleId: "Savdo ID",
-    auditLogs: "Harakatlar jurnali",
-    backupDb: "DB backup",
-    makeBackup: "Backup yaratish",
-    exportExcel: "Excel eksport",
-    exportPdf: "PDF eksport",
-    createdBy: "Kim yaratgan",
-    reportsMenu: "Hisobotlar menyusi",
-    productsMenu: "Tovarlar menyusi",
-    warehouseMenu: "Ombor",
-    staffMenu: "Xodimlar",
-    salesReport: "Sotuvlar hisoboti",
-    checks: "Cheklar",
-    shiftReport: "Smena",
-    inventoryEval: "Inventarizatsiya",
-    salesHistory: "Sotuvlar tarixi",
-    categories: "Kategoriyalar",
-    topSales: "Tez sotiladigan narsalar",
-    weightProducts: "Kiloli tovarlar",
-    labelPrint: "Narx teglari chop etish",
-    serialProducts: "Seriyali tovarlar",
-    priceHistory: "Narxlar tarixi",
-    supplierPayment: "Yetkazib beruvchiga to'lov",
-    supplierReport: "Ta'minotchi mablag'lar hisoboti",
-    from: "Dan",
-    to: "Gacha",
-    byPayment: "To'lov turlari bo'yicha sotuvlar",
-    byHour: "Soatlar bo'yicha sotuvlar",
-    byWeekday: "Hafta kunlari bo'yicha sotuvlar",
-    applyFilter: "Filtrni qo'llash",
-    totalSalesAmount: "Jami savdo",
-    totalSalesCost: "Jami savdo tannarxi",
-    totalPayments: "Jami to'lovlar",
-    income: "Tushum",
-    totalSalesChecks: "Jami savdo cheklari",
-    totalReturnsAmount: "Jami qaytarishlar",
-    totalReturnsCost: "Jami qaytarishlar tannarxi",
-    returnedItems: "Jami qaytarilganlar",
-    expenseOut: "Chiqim",
-    totalReturnChecks: "Jami qaytarilgan cheklar",
-    working: "Aktiv",
-    closed: "Yopilgan",
-    shiftInfo: "Smena haqida ma'lumot",
-    openedAt: "Ochilgan vaqti",
-    closedAt: "Yopilgan vaqti",
-    openedBy: "Ochgan xodim",
-    closedBy: "Yopgan xodim",
-    posDevice: "POS qurilma",
-    shiftSales: "Smenadagi sotuvlar",
-    shiftTransactions: "Smenadagi tranzaksiyalar",
-    inventoryTotalSell: "Umumiy sotuv qiymati",
-    inventoryTotalCost: "Umumiy tannarx",
-    inventoryProfit: "Foyda",
-    inventoryWeightType: "Vaznli mahsulot",
-    inventoryCurrentQty: "Hozir qoldiq",
-    inventoryCurrentAmount: "Hozirgi summa",
-    inventoryIfSold: "Sotilgandagi summa",
-    chooseImage: "Rasm tanlash",
-    noFileChosen: "Fayl tanlanmagan",
-  },
-};
-
-function BrandLogo({ compact = false }) {
-  return (
-    <div className={`brand-logo ${compact ? "compact" : ""}`}>
-      <span className="brand-logo-mark">O</span>
-      <div>
-        <strong>OkaPos</strong>
-        {!compact && <p>Smart Retail POS</p>}
-      </div>
-    </div>
-  );
-}
-
-function LoadingScreen({ text }) {
-  return (
-    <div className="loading-screen" role="status" aria-live="polite">
-      <div className="loading-card">
-        <BrandLogo />
-        <p>{text}</p>
-        <div className="loading-track">
-          <span className="loading-bar" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function printReceipt({ shiftNumber, cashier, paymentType, cart, total }) {
-  const lines = cart
-    .map(
-      (x) =>
-        `<tr><td>${x.name}</td><td>${x.qty}</td><td>${x.unitPrice.toFixed(2)}</td><td>${x.lineTotal.toFixed(2)}</td></tr>`
-    )
-    .join("");
-  const popup = window.open("", "_blank", "width=360,height=640");
-  if (!popup) return;
-  popup.document.write(`
-    <html>
-      <head><title>Receipt</title></head>
-      <body style="font-family:Arial;padding:10px;">
-        <h3>Mini POS</h3>
-        <p>Shift: ${shiftNumber}</p>
-        <p>Cashier: ${cashier}</p>
-        <p>Payment: ${paymentType}</p>
-        <table border="1" cellspacing="0" cellpadding="4" width="100%">
-          <thead><tr><th>Item</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead>
-          <tbody>${lines}</tbody>
-        </table>
-        <h3>Total: ${total.toFixed(2)}</h3>
-      </body>
-    </html>
-  `);
-  popup.document.close();
-  popup.focus();
-  popup.print();
-}
-
-function SalesLineChart({ points }) {
-  const width = 980;
-  const height = 260;
-  const padding = 42;
-  const maxVal = Math.max(1, ...points.map((p) => p.amount || 0));
-  const stepX = (width - padding * 2) / Math.max(1, points.length - 1);
-  const toY = (val) => height - padding - (val / maxVal) * (height - padding * 2);
-  const yTicks = 5;
-  const lineA = points
-    .map((p, i) => `${padding + i * stepX},${toY(p.amount || 0)}`)
-    .join(" ");
-  const lineB = points
-    .map((p, i) => `${padding + i * stepX},${toY((p.amount || 0) * 0.18)}`)
-    .join(" ");
-  return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="sales-line-svg" role="img" aria-label="Sales chart">
-      {[...Array(yTicks)].map((_, x) => {
-        const y = padding + ((height - padding * 2) / (yTicks - 1)) * x;
-        const val = Math.round(maxVal - (maxVal / (yTicks - 1)) * x);
-        return (
-          <g key={x}>
-            <line x1={padding} y1={y} x2={width - padding} y2={y} className="chart-grid-line" />
-            <text x={8} y={y + 4} className="chart-axis-text">{val.toLocaleString("ru-RU")}</text>
-          </g>
-        );
-      })}
-      <polyline points={lineB} className="chart-line chart-line-secondary" />
-      <polyline points={lineA} className="chart-line chart-line-primary" />
-      {points.map((p, i) => (
-        <g key={`${p.hour}-${i}`}>
-          <circle cx={padding + i * stepX} cy={toY(p.amount || 0)} r="2.6" className="chart-dot-primary" />
-          {i % 2 === 0 && <text x={padding + i * stepX - 10} y={height - 8} className="chart-axis-text">{p.hour}</text>}
-        </g>
-      ))}
-    </svg>
-  );
-}
-
-function demoSales() {
-  const now = Date.now();
-  return [
-    {
-      id: 5001,
-      cashier_name: "Islomov Mirzaolim",
-      payment_type: "cash",
-      total_amount: 147000,
-      created_at: new Date(now - 3 * 60 * 60 * 1000).toISOString(),
-      items: [
-        { product_id: 1, qty: 1, price: 24500, line_total: 24500 },
-        { product_id: 2, qty: 4, price: 30625, line_total: 122500 },
-      ],
-    },
-    {
-      id: 5002,
-      cashier_name: "Kassir 2",
-      payment_type: "card",
-      total_amount: 98000,
-      created_at: new Date(now - 2 * 60 * 60 * 1000).toISOString(),
-      items: [{ product_id: 3, qty: 2, price: 49000, line_total: 98000 }],
-    },
-    {
-      id: 5003,
-      cashier_name: "Kassir 1",
-      payment_type: "mixed",
-      total_amount: 234000,
-      created_at: new Date(now - 70 * 60 * 1000).toISOString(),
-      items: [{ product_id: 4, qty: 6, price: 39000, line_total: 234000 }],
-    },
-  ];
-}
-
-function demoShifts() {
-  const now = Date.now();
-  return [
-    {
-      id: 1147,
-      cashier_name: "Islomov Mirzaolim",
-      opening_cash: 250000,
-      closing_cash: null,
-      status: "open",
-      opened_at: new Date(now - 4 * 60 * 60 * 1000).toISOString(),
-      closed_at: null,
-      note: "",
-    },
-    {
-      id: 1146,
-      cashier_name: "Kassir",
-      opening_cash: 180000,
-      closing_cash: 420000,
-      status: "closed",
-      opened_at: new Date(now - 28 * 60 * 60 * 1000).toISOString(),
-      closed_at: new Date(now - 20 * 60 * 60 * 1000).toISOString(),
-      note: "",
-    },
-  ];
-}
-
-function demoDailyReport() {
-  return {
-    date: new Date().toISOString().slice(0, 10),
-    sales_count: 69,
-    revenue: 7760875,
-    expenses: 420000,
-    returns_amount: 0,
-    net_revenue: 7340875,
-    low_stock: [],
-  };
-}
-
-function demoProducts() {
-  return [
-    { id: 101, name: "Kartoshka", artikul: "1001", barcode: "2100101000010", category: "Sabzavot", unit: "kg", buy_price: 4200, sell_price: 6000, stock_qty: 128.5, min_stock: 30 },
-    { id: 102, name: "Piyoz", artikul: "1002", barcode: "2100102000017", category: "Sabzavot", unit: "kg", buy_price: 3500, sell_price: 5200, stock_qty: 96.2, min_stock: 25 },
-    { id: 103, name: "Olma", artikul: "1003", barcode: "2100103000014", category: "Meva", unit: "kg", buy_price: 7800, sell_price: 11000, stock_qty: 64.4, min_stock: 20 },
-    { id: 104, name: "Shakar 1kg", artikul: "1004", barcode: "4780010400018", category: "Bakaleya", unit: "pcs", buy_price: 9500, sell_price: 12500, stock_qty: 40, min_stock: 10 },
-    { id: 105, name: "Suv 1L", artikul: "1005", barcode: "4780010500015", category: "Ichimlik", unit: "pcs", buy_price: 1800, sell_price: 3000, stock_qty: 120, min_stock: 30 },
-    { id: 106, name: "Non", artikul: "1006", barcode: "", category: "Non mahsulot", unit: "pcs", buy_price: 2200, sell_price: 3500, stock_qty: 55, min_stock: 15 },
-  ];
-}
-
-function demoDashboard() {
-  return {
-    today: { sales_count: 69, revenue: 7760875, avg_check: 112476.44, expenses: 420000 },
-    inventory: { products_count: 128, low_stock_count: 9, out_of_stock_count: 3 },
-    shift: { is_open: true, id: 1147, cashier_name: "Islomov Mirzaolim", opened_at: new Date().toISOString() },
-    recent_sales: demoSales().map((x) => ({ ...x, created_at: x.created_at })),
-    recent_movements: [
-      { id: 1, product_name: "Apple", qty_delta: -2, reason: "sale", created_at: new Date().toISOString() },
-      { id: 2, product_name: "Banana", qty_delta: 8, reason: "purchase", created_at: new Date().toISOString() },
-    ],
-  };
-}
-
-function demoSalesStats() {
-  return {
-    range: { from: new Date(Date.now() - 24 * 3600 * 1000).toISOString(), to: new Date().toISOString() },
-    summary: { sales_count: 69, revenue: 7760875, avg_check: 112476.44 },
-    payment_breakdown: [
-      { payment_type: "cash", amount: 4288375 },
-      { payment_type: "card", amount: 2220000 },
-      { payment_type: "mixed", amount: 1252500 },
-    ],
-    hourly: [
-      { hour: "07", amount: 500000 },
-      { hour: "08", amount: 1350000 },
-      { hour: "09", amount: 2400000 },
-      { hour: "10", amount: 600000 },
-      { hour: "11", amount: 3210875 },
-    ],
-    weekday: [
-      { weekday: "1", amount: 450000 },
-      { weekday: "2", amount: 1000000 },
-      { weekday: "3", amount: 850000 },
-      { weekday: "4", amount: 2400000 },
-      { weekday: "5", amount: 1800000 },
-      { weekday: "6", amount: 750000 },
-      { weekday: "0", amount: 510875 },
-    ],
-  };
-}
+import I18N from "./shared/config/i18n";
 
 export default function App() {
   const nowLocal = new Date();
@@ -650,10 +145,54 @@ export default function App() {
   const [showLabelPrintPreview, setShowLabelPrintPreview] = useState(false);
   const [productBarcodes, setProductBarcodes] = useState([""]);
   const [stockForm, setStockForm] = useState({ product_id: "", qty_delta: 0, reason: "adjustment", note: "" });
-  const [adminSection, setAdminSection] = useState(() => localStorage.getItem("adminSection") || "reports");
+  const [adminSection, setAdminSection] = useState(() => localStorage.getItem("adminSection") || "warehouse");
   const [reportsView, setReportsView] = useState(() => localStorage.getItem("reportsView") || "sales");
   const [productsView, setProductsView] = useState(() => localStorage.getItem("productsView") || "products");
   const [financeView, setFinanceView] = useState(() => localStorage.getItem("financeView") || "supplier-payments");
+  const [warehouseView, setWarehouseView] = useState(() => localStorage.getItem("warehouseView") || "receive");
+  const [warehouseReceiveSearch, setWarehouseReceiveSearch] = useState("");
+  const [warehouseDateFrom, setWarehouseDateFrom] = useState(() => new Date().toISOString().slice(0, 10));
+  const [warehouseDateTo, setWarehouseDateTo] = useState(() => new Date().toISOString().slice(0, 10));
+  const [warehouseFakeRows, setWarehouseFakeRows] = useState([
+    {
+      id: 90001,
+      createdAt: new Date().toISOString(),
+      orderNo: "W-90001",
+      status: "Faol",
+      type: "Buyurtma",
+      supplier: "Nafis Trade",
+      employee: "Sunnatilla",
+      totalCost: 540000,
+      totalSell: 690000,
+      note: "Feyk nakladnoy 1",
+      items: [],
+    },
+    {
+      id: 90002,
+      createdAt: new Date().toISOString(),
+      orderNo: "W-90002",
+      status: "Faol",
+      type: "Qaytarish",
+      supplier: "Tuxumchi LLC",
+      employee: "Sunnatilla",
+      totalCost: 210000,
+      totalSell: 265000,
+      note: "Feyk nakladnoy 2",
+      items: [],
+    },
+  ]);
+  const [warehouseLocalSuppliers, setWarehouseLocalSuppliers] = useState([]);
+  const [showWarehouseCreateModal, setShowWarehouseCreateModal] = useState(false);
+  const [showWarehouseSupplierModal, setShowWarehouseSupplierModal] = useState(false);
+  const [warehouseProductSearch, setWarehouseProductSearch] = useState("");
+  const [warehouseDraft, setWarehouseDraft] = useState({
+    supplier: "",
+    type: "Buyurtma",
+    note: "",
+    employee: "Admin 1",
+    items: [],
+  });
+  const [warehouseSupplierDraft, setWarehouseSupplierDraft] = useState({ name: "", company: "", phone: "" });
   const [sidebarOpen, setSidebarOpen] = useState(() => localStorage.getItem("sidebarOpen") !== "false");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem("sidebarCollapsed") === "true");
   const [isDesktop, setIsDesktop] = useState(() => window.innerWidth > 980);
@@ -724,6 +263,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem("financeView", financeView);
   }, [financeView]);
+
+  useEffect(() => {
+    localStorage.setItem("warehouseView", warehouseView);
+  }, [warehouseView]);
 
   useEffect(() => {
     localStorage.setItem("settingsView", settingsView);
@@ -1118,6 +661,89 @@ export default function App() {
     return totals;
   }, [historyRows]);
   const visibleShifts = useMemo(() => shiftsList, [shiftsList]);
+  const warehouseSuppliersList = useMemo(() => {
+    const fromApi = suppliers.map((s) => ({
+      id: s.id,
+      name: s.name || "",
+      company: s.name || "",
+      phone: s.phone || "",
+    }));
+    const localFromRows = warehouseFakeRows
+      .map((r, idx) => ({ id: `local-${idx}`, name: r.supplier, company: r.supplier, phone: "" }))
+      .filter((x) => x.name);
+    const local = [...localFromRows, ...warehouseLocalSuppliers];
+    const unique = new Map();
+    [...fromApi, ...local].forEach((s) => {
+      const key = String(s.name || "").trim().toLowerCase();
+      if (!key) return;
+      if (!unique.has(key)) unique.set(key, s);
+    });
+    return Array.from(unique.values());
+  }, [suppliers, warehouseFakeRows, warehouseLocalSuppliers]);
+  const warehouseReceiveRows = useMemo(() => {
+    const q = warehouseReceiveSearch.trim().toLowerCase();
+    const rows = [
+      ...purchases.map((p) => {
+      const createdAt = p.created_at || p.createdAt || new Date().toISOString();
+      const totalCost = Number(p.total_cost ?? p.total_amount ?? 0);
+      const totalSell = Number(p.total_sell_amount ?? p.total_sell ?? totalCost);
+      const status = p.status || "Faol";
+      const type = p.type || "Buyurtma";
+      return {
+        id: p.id,
+        createdAt,
+        orderNo: p.order_no || p.order_number || String(p.id),
+        status,
+        type,
+        supplier: p.supplier_name || p.supplier || "-",
+        employee: p.created_by || p.employee || "-",
+        totalCost,
+        totalSell,
+      };
+      }),
+      ...warehouseFakeRows,
+    ];
+    const fromTs = new Date(`${warehouseDateFrom}T00:00:00`).getTime();
+    const toTs = new Date(`${warehouseDateTo}T23:59:59.999`).getTime();
+    const byDate = rows.filter((r) => {
+      const ts = new Date(r.createdAt).getTime();
+      return ts >= fromTs && ts <= toTs;
+    });
+    if (!q) return rows;
+    return byDate.filter((r) =>
+      [r.orderNo, r.status, r.type, r.supplier, r.employee, String(r.totalCost), String(r.totalSell)]
+        .join(" ")
+        .toLowerCase()
+        .includes(q)
+    );
+  }, [purchases, warehouseFakeRows, warehouseReceiveSearch, warehouseDateFrom, warehouseDateTo]);
+  const warehouseProductOptions = useMemo(() => {
+    const q = warehouseProductSearch.trim().toLowerCase();
+    const used = new Set(warehouseDraft.items.map((x) => Number(x.productId)));
+    return products.filter((p) => {
+      if (used.has(Number(p.id))) return false;
+      if (!q) return true;
+      return (
+        String(p.name || "").toLowerCase().includes(q) ||
+        String(p.artikul || "").toLowerCase().includes(q) ||
+        String(p.barcode || "").toLowerCase().includes(q)
+      );
+    });
+  }, [products, warehouseProductSearch, warehouseDraft.items]);
+  const warehouseTodayStats = useMemo(() => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = now.getMonth();
+    const d = now.getDate();
+    const todayRows = warehouseReceiveRows.filter((r) => {
+      const dt = new Date(r.createdAt);
+      return dt.getFullYear() === y && dt.getMonth() === m && dt.getDate() === d;
+    });
+    const totalCost = todayRows.reduce((sum, r) => sum + Number(r.totalCost || 0), 0);
+    const totalSell = todayRows.reduce((sum, r) => sum + Number(r.totalSell || 0), 0);
+    const markupPercent = totalCost > 0 ? ((totalSell - totalCost) / totalCost) * 100 : 0;
+    return { count: todayRows.length, totalCost, totalSell, markupPercent };
+  }, [warehouseReceiveRows]);
   function shiftSalesFor(shift) {
     if (!shift) return [];
     const start = new Date(shift.opened_at).getTime();
@@ -1545,6 +1171,71 @@ export default function App() {
     } catch {
       setSyncNote("Sinxronizatsiya bajarilmadi");
     }
+  }
+
+  function openWarehouseCreate() {
+    setWarehouseDraft({
+      supplier: warehouseSuppliersList[0]?.name || "",
+      type: "Buyurtma",
+      note: "",
+      employee: "Admin 1",
+      items: [],
+    });
+    setWarehouseProductSearch("");
+    setShowWarehouseCreateModal(true);
+  }
+
+  function addWarehouseItem(product) {
+    if (!product) return;
+    setWarehouseDraft((prev) => ({
+      ...prev,
+      items: [
+        ...prev.items,
+        {
+          productId: product.id,
+          name: product.name,
+          qty: 1,
+          cost: Number(product.buy_price || 0),
+          sell: Number(product.sell_price || 0),
+        },
+      ],
+    }));
+    setWarehouseProductSearch("");
+  }
+
+  function saveWarehouseSupplier() {
+    const name = warehouseSupplierDraft.name.trim();
+    const company = warehouseSupplierDraft.company.trim();
+    if (!name || !company) return;
+    setWarehouseLocalSuppliers((prev) => [
+      ...prev,
+      { id: `new-${Date.now()}`, name, company, phone: warehouseSupplierDraft.phone.trim() },
+    ]);
+    setWarehouseDraft((prev) => ({ ...prev, supplier: company }));
+    setWarehouseSupplierDraft({ name: "", company: "", phone: "" });
+    setShowWarehouseSupplierModal(false);
+  }
+
+  function createWarehouseInvoice() {
+    if (!warehouseDraft.supplier || !warehouseDraft.items.length) return;
+    const totalCost = warehouseDraft.items.reduce((sum, x) => sum + Number(x.qty || 0) * Number(x.cost || 0), 0);
+    const totalSell = warehouseDraft.items.reduce((sum, x) => sum + Number(x.qty || 0) * Number(x.sell || 0), 0);
+    const id = Date.now();
+    const row = {
+      id,
+      createdAt: new Date().toISOString(),
+      orderNo: `W-${id}`.slice(-7),
+      status: "Faol",
+      type: warehouseDraft.type,
+      supplier: warehouseDraft.supplier,
+      employee: warehouseDraft.employee || "Admin 1",
+      totalCost,
+      totalSell,
+      note: warehouseDraft.note,
+      items: warehouseDraft.items,
+    };
+    setWarehouseFakeRows((prev) => [row, ...prev]);
+    setShowWarehouseCreateModal(false);
   }
 
   async function checkout() {
@@ -2023,7 +1714,7 @@ export default function App() {
               onClick={() => {
                 setSession(null);
                 setMode("cashier");
-                setAdminSection("reports");
+                setAdminSection("warehouse");
               }}
             >
               {t.logout}
@@ -2036,7 +1727,7 @@ export default function App() {
               onClick={() => {
                 setSession(null);
                 setMode("cashier");
-                setAdminSection("reports");
+                setAdminSection("warehouse");
               }}
             >
               {t.logout}
@@ -2048,221 +1739,51 @@ export default function App() {
       {error && <p className="error">{error}</p>}
 
       {mode === "cashier" && (
-        <section className="grid-2 page-transition">
-          <div className="card">
-            <h2>{t.modeCashier}</h2>
-            <p>{t.shift}: #{shiftNumber}</p>
-            <div className="kpi-grid">
-              <article className="kpi-card">
-                <p>{t.totalProducts}</p>
-                <strong>{products.length}</strong>
-              </article>
-              <article className="kpi-card">
-                <p>{t.cart}</p>
-                <strong>{cart.length}</strong>
-              </article>
-              <article className="kpi-card">
-                <p>{t.total}</p>
-                <strong>{formatMoney(cartTotal)}</strong>
-              </article>
-            </div>
-            <input placeholder={t.search} value={search} onChange={(e) => setSearch(e.target.value)} />
-            <div className="pos-quick-board">
-              <div className="pos-quick-head row">
-                <strong>Kassa uchun kartochkalar</strong>
-                <div className="row">
-                  <button type="button" onClick={syncOfflineCacheNow}>Sinxronizatsiya</button>
-                  {session.role === "admin" ? (
-                    <button type="button" onClick={() => { setProductsView("top"); setMode("admin"); setAdminSection("products"); }}>
-                      Sozlash
-                    </button>
-                  ) : null}
-                </div>
-              </div>
-              {syncNote ? <p className="muted">{syncNote}</p> : null}
-              <div className="pos-quick-categories">
-                <button
-                  type="button"
-                  className={`pos-cat-card ${activeQuickCategory === "all" ? "active" : ""}`}
-                  onClick={() => setActiveQuickCategory("all")}
-                >
-                  Barchasi
-                </button>
-                {quickCategoryTiles.map((tile) => (
-                  <button
-                    key={tile.id}
-                    type="button"
-                    className={`pos-cat-card ${activeQuickCategory.toLowerCase() === String(tile.categoryName || "").toLowerCase() ? "active" : ""}`}
-                    onClick={() => setActiveQuickCategory(tile.categoryName)}
-                  >
-                    {tile.label}
-                  </button>
-                ))}
-              </div>
-              <div className="pos-quick-products">
-                {quickCashierTiles.map((tile) => (
-                  tile.kind === "category" ? (
-                    <button
-                      key={tile.id}
-                      type="button"
-                      className={`pos-product-card pos-category-card ${activeQuickCategory.toLowerCase() === String(tile.categoryName || "").toLowerCase() ? "active" : ""}`}
-                      onClick={() => setActiveQuickCategory(tile.categoryName)}
-                    >
-                      <span>{tile.label}</span>
-                      <em>toifa</em>
-                    </button>
-                  ) : (
-                    <button key={tile.id} type="button" className="pos-product-card" onClick={() => addToCart(tile.product, { qtyOverride: 1 })}>
-                      <span>{tile.product.name}</span>
-                      <em>{Math.round(Number(tile.product.sell_price || 0))}</em>
-                    </button>
-                  )
-                ))}
-                {!quickCashierTiles.length && <p className="muted">Tez sotuv kartochkalari sozlanmagan</p>}
-              </div>
-            </div>
-            <div className="chips">
-              {popular.map((p) => (
-                <button key={p.id} onClick={() => addToCart(products.find((x) => x.id === p.id))}>
-                  {p.name}
-                </button>
-              ))}
-            </div>
-            <div className="row">
-              <select value={saleForm.product_id} onChange={(e) => setSaleForm((s) => ({ ...s, product_id: e.target.value }))}>
-                <option value="">{t.selectProduct}</option>
-                {filteredProducts.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} ({p.sell_price})
-                  </option>
-                ))}
-              </select>
-              <input type="number" step="0.01" value={saleForm.qty} onChange={(e) => setSaleForm((s) => ({ ...s, qty: e.target.value }))} />
-            </div>
-            <div className="row">
-              <input type="number" placeholder={t.discount} value={saleForm.discount} onChange={(e) => setSaleForm((s) => ({ ...s, discount: e.target.value }))} />
-              <input type="number" placeholder={t.markup} value={saleForm.markup} onChange={(e) => setSaleForm((s) => ({ ...s, markup: e.target.value }))} />
-            </div>
-            <div className="row">
-              <label>
-                <input type="checkbox" checked={returnMode} onChange={(e) => setReturnMode(e.target.checked)} /> {t.returnMode}
-              </label>
-              <button onClick={() => addToCart()}>{t.add}</button>
-            </div>
-            <div className="row">
-              <input value={saleForm.cashier_name} onChange={(e) => setSaleForm((s) => ({ ...s, cashier_name: e.target.value }))} />
-              <select value={saleForm.payment_type} onChange={(e) => setSaleForm((s) => ({ ...s, payment_type: e.target.value }))}>
-                <option value="cash">cash</option>
-                <option value="card">card</option>
-                <option value="mixed">mixed</option>
-              </select>
-            </div>
-          </div>
-          <div className="card">
-            <h3>{t.cart}</h3>
-            <table>
-              <thead>
-                <tr>
-                  <th>{t.product}</th>
-                  <th>{t.qty}</th>
-                  <th>{t.price}</th>
-                  <th>{t.line}</th>
-                  <th>{t.action}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {cart.map((item, idx) => (
-                  <tr key={`${item.id}-${idx}`}>
-                    <td>{item.name}</td>
-                    <td>{item.qty}</td>
-                    <td>{item.unitPrice.toFixed(2)}</td>
-                    <td>{item.lineTotal.toFixed(2)}</td>
-                    <td>
-                      <button onClick={() => setCart((prev) => prev.filter((_, i) => i !== idx))}>{t.remove}</button>
-                    </td>
-                  </tr>
-                ))}
-                {!cart.length && (
-                  <tr>
-                    <td colSpan="5">{t.empty}</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-            <h3>{t.total}: {cartTotal.toFixed(2)}</h3>
-            <div className="row">
-              <button onClick={checkout} disabled={!cart.length}>{t.checkout}</button>
-              <button onClick={() => printReceipt({ shiftNumber, cashier: saleForm.cashier_name, paymentType: saleForm.payment_type, cart, total: cartTotal })} disabled={!cart.length}>{t.print}</button>
-            </div>
-          </div>
-        </section>
+        <CashierSection
+          t={t}
+          shiftNumber={shiftNumber}
+          products={products}
+          cart={cart}
+          cartTotal={cartTotal}
+          formatMoney={formatMoney}
+          search={search}
+          setSearch={setSearch}
+          syncOfflineCacheNow={syncOfflineCacheNow}
+          session={session}
+          setProductsView={setProductsView}
+          setMode={setMode}
+          setAdminSection={setAdminSection}
+          syncNote={syncNote}
+          activeQuickCategory={activeQuickCategory}
+          setActiveQuickCategory={setActiveQuickCategory}
+          quickCategoryTiles={quickCategoryTiles}
+          quickCashierTiles={quickCashierTiles}
+          addToCart={addToCart}
+          popular={popular}
+          saleForm={saleForm}
+          setSaleForm={setSaleForm}
+          filteredProducts={filteredProducts}
+          returnMode={returnMode}
+          setReturnMode={setReturnMode}
+          setCart={setCart}
+          checkout={checkout}
+          printReceipt={printReceipt}
+        />
       )}
 
       {mode === "admin" && session.role === "admin" && (
-        <section className={`admin-shell page-transition ${sidebarOpen ? "with-sidebar" : ""} ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
-          <button
-            type="button"
-            className={`menu-toggle-btn ${sidebarOpen ? "is-open" : "is-closed"}`}
-            onClick={() => {
-              if (isDesktop) {
-                setSidebarCollapsed((v) => !v);
-                setSidebarOpen(true);
-                return;
-              }
-              setSidebarOpen((v) => !v);
-            }}
-            aria-label="Toggle menu"
-          >
-            <span className="menu-toggle-arrow" aria-hidden="true">
-              {isDesktop ? (sidebarCollapsed ? "▶" : "◀") : (sidebarOpen ? "◀" : "▶")}
-            </span>
-          </button>
-
-          {sidebarOpen ? (
-            <aside className="admin-sidebar card">
-              <div className="sidebar-logo">
-                <BrandLogo compact />
-              </div>
-              <nav className="sidebar-menu">
-                {[
-                  { id: "reports", label: t.menuReports, icon: "📊" },
-                  { id: "products", label: t.menuProducts, icon: "🧺" },
-                  { id: "warehouse", label: t.menuWarehouse, icon: "📦" },
-                  { id: "finance", label: t.menuFinance, icon: "💳" },
-                  { id: "staff", label: t.menuStaff, icon: "🕒" },
-                  { id: "returns", label: t.menuReturns, icon: "↩️" },
-                  { id: "audit", label: t.menuAudit, icon: "🧾" },
-                  { id: "settings", label: t.menuSettings, icon: "⚙️" },
-                ].map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    className={`menu-item ${adminSection === item.id ? "active" : ""}`}
-                    onClick={() => setAdminSection(item.id)}
-                    title={sidebarCollapsed ? item.label : ""}
-                  >
-                    <span className="menu-icon" aria-hidden="true">{item.icon}</span>
-                    <span className="menu-text">{item.label}</span>
-                  </button>
-                ))}
-              </nav>
-              <div className="sidebar-footer">
-                <button type="button" onClick={() => setMode("cashier")}>{t.modeCashier}</button>
-                <button type="button" onClick={() => setMode("admin")}>{t.modeAdmin}</button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSession(null);
-                    setMode("cashier");
-                    setAdminSection("reports");
-                  }}
-                >
-                  {t.logout}
-                </button>
-              </div>
-            </aside>
-          ) : null}
-
+        <AdminShell
+          t={t}
+          sidebarOpen={sidebarOpen}
+          sidebarCollapsed={sidebarCollapsed}
+          isDesktop={isDesktop}
+          setSidebarOpen={setSidebarOpen}
+          setSidebarCollapsed={setSidebarCollapsed}
+          adminSection={adminSection}
+          setAdminSection={setAdminSection}
+          setMode={setMode}
+          setSession={setSession}
+        >
           <div className="admin-content card">
             <h2>{t.adminWorkspace}</h2>
             <div key={adminSection} className="page-transition">
@@ -2716,6 +2237,7 @@ export default function App() {
 
               {adminSection === "products" && (
                 <div className="grid">
+                  <div className="subtabs-head products-subtabs-head">{t.productsActions}</div>
                   <div className="subtabs-grid products-subtabs-grid">
                     {[
                       { id: "products", label: t.menuProducts, icon: "⭐" },
@@ -2723,12 +2245,11 @@ export default function App() {
                       { id: "top", label: t.topSales, icon: "🔲" },
                       { id: "weight", label: t.weightProducts, icon: "⚖️" },
                       { id: "labels", label: t.labelPrint, icon: "🖨️" },
-                      { id: "serial", label: t.serialProducts, icon: "🔳" },
                     ].map((item) => (
                       <button
                         key={item.id}
                         type="button"
-                        className={`subtab-btn ${productsView === item.id ? "active" : ""}`}
+                        className={`subtab-btn products-subtab-btn ${productsView === item.id ? "active" : ""}`}
                         onClick={() => setProductsView(item.id)}
                       >
                         <span>{item.icon}</span>
@@ -2768,7 +2289,7 @@ export default function App() {
                       <div className="card">
                         <h4>{t.products}</h4>
                         <div className="table-scroll">
-                          <table>
+                          <table className="product-list-table">
                             <thead><tr><th>ID</th><th>{t.product}</th><th>ARTIKUL</th><th>BARCODE</th><th>CATEGORY</th><th>Tannarxi</th><th>Marja %</th><th>{t.price}</th><th>{t.qty}</th><th>Amal</th></tr></thead>
                             <tbody>
                               {filteredProducts.map((p) => (
@@ -2800,7 +2321,7 @@ export default function App() {
                                   >
                                     {formatMoney(p.sell_price)}
                                   </td>
-                                  <td>{p.stock_qty}</td>
+                                  <td className={Number(p.stock_qty) < 0 ? "qty-negative" : ""}>{p.stock_qty}</td>
                                   <td>
                                     <div className="product-actions">
                                       <button type="button" onClick={() => openProductEdit(p)} title="To'liq o'zgartirish">✏</button>
@@ -2816,7 +2337,7 @@ export default function App() {
 
                       {showProductModal && (
                         <div className="form-modal-backdrop" onClick={() => setShowProductModal(false)}>
-                          <div className="form-modal card" onClick={(e) => e.stopPropagation()}>
+                          <div className="form-modal card warehouse-create-modal" onClick={(e) => e.stopPropagation()}>
                             <div className="row">
                               <h4>{editingProductId ? "Mahsulotni tahrirlash" : "Yangi mahsulot yaratish"}</h4>
                               <button type="button" onClick={() => setShowProductModal(false)}>X</button>
@@ -3567,64 +3088,214 @@ export default function App() {
               )}
 
               {adminSection === "warehouse" && (
-                <div className="grid-2">
-                  <div className="card">
-                    <h3>{t.createProduct}</h3>
-                    <form onSubmit={createProduct} className="grid">
-                      <input placeholder="Name" value={productForm.name} onChange={(e) => setProductForm((s) => ({ ...s, name: e.target.value }))} required />
-                      <input placeholder="BARCODE (optional)" value={productForm.barcode} onChange={(e) => setProductForm((s) => ({ ...s, barcode: e.target.value }))} />
-                      <input placeholder="CATEGORY" value={productForm.category} onChange={(e) => setProductForm((s) => ({ ...s, category: e.target.value }))} />
-                      <select value={productForm.unit} onChange={(e) => setProductForm((s) => ({ ...s, unit: e.target.value }))}>
-                        <option value="kg">kg</option>
-                        <option value="pcs">pcs</option>
-                      </select>
-                      <input type="number" step="0.01" placeholder="Buy price" value={productForm.buy_price} onChange={(e) => setProductForm((s) => ({ ...s, buy_price: e.target.value }))} />
-                      <input type="number" step="0.01" placeholder="Sell price" value={productForm.sell_price} onChange={(e) => setProductForm((s) => ({ ...s, sell_price: e.target.value }))} required />
-                      <input type="number" step="0.01" placeholder="Stock" value={productForm.stock_qty} onChange={(e) => setProductForm((s) => ({ ...s, stock_qty: e.target.value }))} />
-                      <input type="number" step="0.01" placeholder="Min stock" value={productForm.min_stock} onChange={(e) => setProductForm((s) => ({ ...s, min_stock: e.target.value }))} />
-                      <button type="submit">{t.save}</button>
-                    </form>
+                <div className="grid">
+                  <div className="subtabs-head warehouse-subtabs-head">{t.warehouseActions}</div>
+                  <div className="subtabs-grid warehouse-subtabs-grid">
+                    {[
+                      { id: "receive", label: t.warehouseReceive, icon: "🛒" },
+                      { id: "suppliers", label: t.warehouseSuppliers, icon: "🚚" },
+                      { id: "dispatch", label: t.warehouseDispatch, icon: "📦" },
+                      { id: "inventory", label: t.warehouseInventory, icon: "🧾" },
+                    ].map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        className={`subtab-btn warehouse-subtab-btn ${warehouseView === item.id ? "active" : ""}`}
+                        onClick={() => setWarehouseView(item.id)}
+                      >
+                        <span>{item.icon}</span>
+                        {item.label}
+                      </button>
+                    ))}
                   </div>
-                  <div className="card">
-                    <h3>{t.adjustStock}</h3>
-                    <form onSubmit={adjustStock} className="grid">
-                      <select value={stockForm.product_id} onChange={(e) => setStockForm((s) => ({ ...s, product_id: e.target.value }))}>
-                        <option value="">{t.selectProduct}</option>
-                        {products.map((p) => (
-                          <option key={p.id} value={p.id}>{p.name}</option>
-                        ))}
-                      </select>
-                      <input type="number" step="0.01" value={stockForm.qty_delta} onChange={(e) => setStockForm((s) => ({ ...s, qty_delta: e.target.value }))} />
-                      <select value={stockForm.reason} onChange={(e) => setStockForm((s) => ({ ...s, reason: e.target.value }))}>
-                        <option value="adjustment">{t.adjustment}</option>
-                        <option value="incoming">{t.incoming}</option>
-                        <option value="writeoff">{t.writeoff}</option>
-                        <option value="sale">{t.saleOp}</option>
-                      </select>
-                      <input placeholder={t.note} value={stockForm.note} onChange={(e) => setStockForm((s) => ({ ...s, note: e.target.value }))} />
-                      <button type="submit">{t.apply}</button>
-                    </form>
-                    <h3>{t.products}</h3>
-                    <div className="table-scroll">
-                      <table>
-                        <thead><tr><th>ID</th><th>Name</th><th>ARTIKUL</th><th>BARCODE</th><th>CATEGORY</th><th>Price</th><th>Stock</th></tr></thead>
-                        <tbody>
-                          {products.map((p) => (
-                            <tr key={p.id}>
-                              <td>{p.id}</td><td>{p.name}</td><td>{p.artikul || "-"}</td><td>{p.barcode || "-"}</td><td>{p.category || "-"}</td><td>{p.sell_price}</td><td>{p.stock_qty}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  {!!lowStockProducts.length && (
-                    <div className="stock-alert-list">
-                      {lowStockProducts.slice(0, 6).map((p) => (
-                        <span key={p.id} className="stock-alert-chip">{p.name}: {p.stock_qty}</span>
-                      ))}
+                  {warehouseView === "receive" && (
+                    <div className="grid">
+                      <div className="warehouse-stats-row">
+                        <article className="kpi-card">
+                          <p>Shu kuni nakladnoy soni</p>
+                          <strong>{warehouseTodayStats.count}</strong>
+                        </article>
+                        <article className="kpi-card">
+                          <p>Umumiy tannarxi</p>
+                          <strong>{formatMoney(warehouseTodayStats.totalCost)}</strong>
+                        </article>
+                        <article className="kpi-card">
+                          <p>Umumiy sotuv narxi</p>
+                          <strong>{formatMoney(warehouseTodayStats.totalSell)}</strong>
+                        </article>
+                        <article className="kpi-card">
+                          <p>Natsenko foiz</p>
+                          <strong>{warehouseTodayStats.markupPercent.toFixed(2)}%</strong>
+                        </article>
+                      </div>
+
+                      <div className="card">
+                        <div className="warehouse-receive-head">
+                          <input
+                            placeholder="Qidiruv..."
+                            value={warehouseReceiveSearch}
+                            onChange={(e) => setWarehouseReceiveSearch(e.target.value)}
+                          />
+                          <input type="date" value={warehouseDateFrom} onChange={(e) => setWarehouseDateFrom(e.target.value)} />
+                          <input type="date" value={warehouseDateTo} onChange={(e) => setWarehouseDateTo(e.target.value)} />
+                          <button type="button" onClick={openWarehouseCreate}>Yangi nakladnoy</button>
+                        </div>
+                        <p className="muted">Sana: {new Date().toLocaleDateString("uz-UZ")}</p>
+                        <div className="table-scroll">
+                          <table className="product-list-table">
+                            <thead>
+                              <tr>
+                                <th>Buyurtma raqami</th>
+                                <th>Sana</th>
+                                <th>Status</th>
+                                <th>Turi</th>
+                                <th>Yetkazib beruvchi</th>
+                                <th>Xodim</th>
+                                <th>Umumiy tannarxi</th>
+                                <th>Umumiy sotuv narxi</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {warehouseReceiveRows.map((row) => (
+                                <tr key={row.id}>
+                                  <td>{row.orderNo}</td>
+                                  <td>{new Date(row.createdAt).toLocaleString("uz-UZ")}</td>
+                                  <td>{row.status}</td>
+                                  <td>{row.type}</td>
+                                  <td>{row.supplier}</td>
+                                  <td>{row.employee}</td>
+                                  <td>{formatMoney(row.totalCost)}</td>
+                                  <td>{formatMoney(row.totalSell)}</td>
+                                </tr>
+                              ))}
+                              {!warehouseReceiveRows.length && (
+                                <tr>
+                                  <td colSpan="8" className="muted">Ma'lumot topilmadi</td>
+                                </tr>
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+
+                      {showWarehouseCreateModal && (
+                        <div className="form-modal-backdrop" onClick={() => setShowWarehouseCreateModal(false)}>
+                          <div className="form-modal card" onClick={(e) => e.stopPropagation()}>
+                            <div className="row">
+                              <h4>Yangi nakladnoy</h4>
+                              <button type="button" onClick={() => setShowWarehouseCreateModal(false)}>X</button>
+                            </div>
+                            <div className="grid">
+                              <label>Yetkazib beruvchi</label>
+                              <div className="row">
+                                <select value={warehouseDraft.supplier} onChange={(e) => setWarehouseDraft((s) => ({ ...s, supplier: e.target.value }))}>
+                                  <option value="">Tanlang</option>
+                                  {warehouseSuppliersList.map((s) => (
+                                    <option key={s.id} value={s.company || s.name}>{s.company || s.name}</option>
+                                  ))}
+                                </select>
+                                <button type="button" onClick={() => setShowWarehouseSupplierModal(true)}>+</button>
+                              </div>
+
+                              <label>Turi</label>
+                              <select value={warehouseDraft.type} onChange={(e) => setWarehouseDraft((s) => ({ ...s, type: e.target.value }))}>
+                                <option value="Buyurtma">Buyurtma</option>
+                                <option value="Qaytarish">Qaytarish</option>
+                              </select>
+
+                              <label>Yaratilgan sana</label>
+                              <input value={new Date().toLocaleString("uz-UZ")} disabled />
+
+                              <label>Izoh</label>
+                              <textarea rows={2} value={warehouseDraft.note} onChange={(e) => setWarehouseDraft((s) => ({ ...s, note: e.target.value }))} />
+
+                              <label>Qidiruv</label>
+                              <input placeholder="Mahsulot qidirish..." value={warehouseProductSearch} onChange={(e) => setWarehouseProductSearch(e.target.value)} />
+                              <div className="warehouse-product-search-list table-scroll">
+                                <table className="product-list-table">
+                                  <thead><tr><th>Artikul</th><th>Nomi</th><th>Narx</th><th></th></tr></thead>
+                                  <tbody>
+                                    {warehouseProductOptions.slice(0, 8).map((p) => (
+                                      <tr key={p.id}>
+                                        <td>{p.artikul || p.id}</td>
+                                        <td>{p.name}</td>
+                                        <td>{formatMoney(p.sell_price)}</td>
+                                        <td><button type="button" onClick={() => addWarehouseItem(p)}>+</button></td>
+                                      </tr>
+                                    ))}
+                                    {!warehouseProductOptions.length && (
+                                      <tr><td colSpan="4" className="muted">Mos mahsulot topilmadi</td></tr>
+                                    )}
+                                  </tbody>
+                                </table>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setShowWarehouseCreateModal(false);
+                                  setProductsView("products");
+                                  setAdminSection("products");
+                                  setEditingProductId(null);
+                                  setProductForm({ name: "", unit: "kg", barcode: "", category: "General", imageName: "", tariff: "", buy_price: 0, sell_price: 0, stock_qty: 0, min_stock: 0 });
+                                  setProductBarcodes([""]);
+                                  setShowProductModal(true);
+                                }}
+                              >
+                                Yangi mahsulot qo'shish
+                              </button>
+                            </div>
+                            <div className="table-scroll">
+                              <table className="product-list-table">
+                                <thead><tr><th>Mahsulot</th><th>Soni</th><th>Tannarxi</th><th>Sotuv narxi</th><th>Jami</th><th></th></tr></thead>
+                                <tbody>
+                                  {warehouseDraft.items.map((it, idx) => (
+                                    <tr key={`${it.productId}-${idx}`}>
+                                      <td>{it.name}</td>
+                                      <td><input type="number" min="0.01" step="0.01" value={it.qty} onChange={(e) => setWarehouseDraft((s) => ({ ...s, items: s.items.map((x, i) => i === idx ? { ...x, qty: Number(e.target.value || 0) } : x) }))} /></td>
+                                      <td><input type="number" min="0" step="0.01" value={it.cost} onChange={(e) => setWarehouseDraft((s) => ({ ...s, items: s.items.map((x, i) => i === idx ? { ...x, cost: Number(e.target.value || 0) } : x) }))} /></td>
+                                      <td><input type="number" min="0" step="0.01" value={it.sell} onChange={(e) => setWarehouseDraft((s) => ({ ...s, items: s.items.map((x, i) => i === idx ? { ...x, sell: Number(e.target.value || 0) } : x) }))} /></td>
+                                      <td>{formatMoney(Number(it.qty || 0) * Number(it.cost || 0))}</td>
+                                      <td><button type="button" onClick={() => setWarehouseDraft((s) => ({ ...s, items: s.items.filter((_, i) => i !== idx) }))}>🗑</button></td>
+                                    </tr>
+                                  ))}
+                                  {!warehouseDraft.items.length && <tr><td colSpan="6" className="muted">Mahsulot qo'shilmagan</td></tr>}
+                                </tbody>
+                              </table>
+                            </div>
+                            <div className="row">
+                              <button type="button" onClick={createWarehouseInvoice}>Saqlash</button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {showWarehouseSupplierModal && (
+                        <div className="form-modal-backdrop" onClick={() => setShowWarehouseSupplierModal(false)}>
+                          <div className="form-modal card" onClick={(e) => e.stopPropagation()}>
+                            <div className="row">
+                              <h4>Yangi yetkazib beruvchi</h4>
+                              <button type="button" onClick={() => setShowWarehouseSupplierModal(false)}>X</button>
+                            </div>
+                            <div className="grid">
+                              <label>Nomi *</label>
+                              <input value={warehouseSupplierDraft.name} onChange={(e) => setWarehouseSupplierDraft((s) => ({ ...s, name: e.target.value }))} required />
+                              <label>Firma nomi *</label>
+                              <input value={warehouseSupplierDraft.company} onChange={(e) => setWarehouseSupplierDraft((s) => ({ ...s, company: e.target.value }))} required />
+                              <label>Tel raqam</label>
+                              <input value={warehouseSupplierDraft.phone} onChange={(e) => setWarehouseSupplierDraft((s) => ({ ...s, phone: e.target.value }))} />
+                              <button type="button" onClick={saveWarehouseSupplier}>Qo'shish</button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
-                  </div>
+                  {warehouseView !== "receive" && (
+                    <div className="card">
+                      <h3>{t.warehouseActions}</h3>
+                      <p>{t.warehouseComingSoon}</p>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -3870,7 +3541,7 @@ export default function App() {
               )}
             </div>
           </div>
-        </section>
+        </AdminShell>
       )}
       {warningModal.open && (
         <div

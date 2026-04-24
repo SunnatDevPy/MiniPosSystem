@@ -17,7 +17,7 @@ from app.db import get_db
 from app.models.entities import AuditLog, Expense, LabelTemplate, Product, Return, Sale, SaleItem, Shift, StockMovement
 from app.schemas.ops import LabelTemplateCreate, LabelTemplateOut, LabelTemplateUpdate
 
-router = APIRouter()
+router = APIRouter(tags=["Reports & Admin"])
 
 
 @router.get("/reports/popular")

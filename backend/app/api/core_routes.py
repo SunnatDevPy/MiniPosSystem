@@ -12,7 +12,7 @@ from app.models.entities import Product, Sale, SaleItem, StockMovement
 from app.schemas.product import ProductCreate, ProductOut, ProductUpdate, StockAdjust
 from app.schemas.sale import SaleCreate, SaleOut
 
-router = APIRouter()
+router = APIRouter(tags=["Core POS"])
 
 
 @router.get("/health")

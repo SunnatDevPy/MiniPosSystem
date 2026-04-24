@@ -5,7 +5,29 @@ from sqlalchemy import text
 from app.api.router import router
 from app.db import Base, engine
 
-app = FastAPI(title="Mini POS API", version="0.1.0")
+app = FastAPI(
+    title="Mini POS API",
+    version="0.1.0",
+    description=(
+        "Backend API for Mini POS system.\n\n"
+        "Use this API to manage products and stock, create sales, run daily operations "
+        "(suppliers, purchases, shifts, expenses, returns), and get analytics/reports."
+    ),
+    openapi_tags=[
+        {
+            "name": "Core POS",
+            "description": "Health check, products catalog, stock adjustments, and sales operations.",
+        },
+        {
+            "name": "Operations",
+            "description": "Suppliers, purchases, shift lifecycle, expenses, and customer returns.",
+        },
+        {
+            "name": "Reports & Admin",
+            "description": "Analytics reports, export endpoints, backups, audit logs, and label templates.",
+        },
+    ],
+)
 
 app.add_middleware(
     CORSMiddleware,

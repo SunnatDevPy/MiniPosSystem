@@ -23,7 +23,7 @@ from app.models.entities import (
 )
 from app.schemas.ops import ExpenseCreate, PurchaseCreate, ReturnCreate, ShiftClose, ShiftOpen, SupplierCreate
 
-router = APIRouter()
+router = APIRouter(tags=["Operations"])
 
 
 @router.post("/suppliers")
