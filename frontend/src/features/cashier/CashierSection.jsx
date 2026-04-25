@@ -1,3 +1,5 @@
+import { FiRefreshCcw, FiSettings, FiPlus, FiPrinter, FiCreditCard, FiPackage, FiInbox } from "react-icons/fi";
+
 export default function CashierSection({
   t,
   shiftNumber,
@@ -43,9 +45,9 @@ export default function CashierSection({
           <div className="pos-quick-head row">
             <strong>Kassa uchun kartochkalar</strong>
             <div className="row">
-              <button type="button" onClick={syncOfflineCacheNow}>Sinxronizatsiya</button>
+              <button type="button" onClick={syncOfflineCacheNow}><FiRefreshCcw /> Sinxronizatsiya</button>
               {session.role === "admin" ? (
-                <button type="button" onClick={() => { setProductsView("top"); setMode("admin"); setAdminSection("products"); }}>Sozlash</button>
+                <button type="button" onClick={() => { setProductsView("top"); setMode("admin"); setAdminSection("products"); }}><FiSettings /> Sozlash</button>
               ) : null}
             </div>
           </div>
@@ -68,7 +70,12 @@ export default function CashierSection({
                 </button>
               )
             ))}
-            {!quickCashierTiles.length && <p className="muted">Tez sotuv kartochkalari sozlanmagan</p>}
+            {!quickCashierTiles.length && (
+              <div className="empty-state compact">
+                <FiPackage />
+                <p>Tez sotuv kartochkalari sozlanmagan</p>
+              </div>
+            )}
           </div>
         </div>
         <div className="chips">
@@ -89,7 +96,7 @@ export default function CashierSection({
         </div>
         <div className="row">
           <label><input type="checkbox" checked={returnMode} onChange={(e) => setReturnMode(e.target.checked)} /> {t.returnMode}</label>
-          <button onClick={() => addToCart()}>{t.add}</button>
+          <button onClick={() => addToCart()}><FiPlus /> {t.add}</button>
         </div>
         <div className="row">
           <input value={saleForm.cashier_name} onChange={(e) => setSaleForm((s) => ({ ...s, cashier_name: e.target.value }))} />
@@ -109,13 +116,22 @@ export default function CashierSection({
                 <td><button onClick={() => setCart((prev) => prev.filter((_, i) => i !== idx))}>{t.remove}</button></td>
               </tr>
             ))}
-            {!cart.length && <tr><td colSpan="5">{t.empty}</td></tr>}
+            {!cart.length && (
+              <tr>
+                <td colSpan="5">
+                  <div className="empty-state table">
+                    <FiInbox />
+                    <p>{t.empty}</p>
+                  </div>
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
         <h3>{t.total}: {cartTotal.toFixed(2)}</h3>
         <div className="row">
-          <button onClick={checkout} disabled={!cart.length}>{t.checkout}</button>
-          <button onClick={() => printReceipt({ shiftNumber, cashier: saleForm.cashier_name, paymentType: saleForm.payment_type, cart, total: cartTotal })} disabled={!cart.length}>{t.print}</button>
+          <button onClick={checkout} disabled={!cart.length}><FiCreditCard /> {t.checkout}</button>
+          <button onClick={() => printReceipt({ shiftNumber, cashier: saleForm.cashier_name, paymentType: saleForm.payment_type, cart, total: cartTotal })} disabled={!cart.length}><FiPrinter /> {t.print}</button>
         </div>
       </div>
     </section>

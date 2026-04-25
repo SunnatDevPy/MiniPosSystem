@@ -23,13 +23,18 @@ export default function App() {
     const raw = localStorage.getItem("session");
     if (!raw) return null;
     try {
-      return JSON.parse(raw);
+      const parsed = JSON.parse(raw);
+      if (!parsed || (parsed.role !== "cashier" && parsed.role !== "admin")) return null;
+      return parsed;
     } catch {
       return null;
     }
   });
   const [login, setLogin] = useState({ role: "cashier" });
-  const [mode, setMode] = useState(() => localStorage.getItem("mode") || "cashier");
+  const [mode, setMode] = useState(() => {
+    const rawMode = localStorage.getItem("mode");
+    return rawMode === "admin" || rawMode === "cashier" ? rawMode : "cashier";
+  });
   const [products, setProducts] = useState([]);
   const [popular, setPopular] = useState([]);
   const [report, setReport] = useState(null);
@@ -185,14 +190,28 @@ export default function App() {
   const [showWarehouseCreateModal, setShowWarehouseCreateModal] = useState(false);
   const [showWarehouseSupplierModal, setShowWarehouseSupplierModal] = useState(false);
   const [warehouseProductSearch, setWarehouseProductSearch] = useState("");
+  const [warehouseProductToAdd, setWarehouseProductToAdd] = useState("");
+  const [warehouseSupplierSearch, setWarehouseSupplierSearch] = useState("");
+  const [warehouseEditorMode, setWarehouseEditorMode] = useState("create");
+  const [warehouseEditingId, setWarehouseEditingId] = useState(null);
+  const [warehouseQtyModal, setWarehouseQtyModal] = useState({ open: false, idx: -1, value: "1" });
   const [warehouseDraft, setWarehouseDraft] = useState({
     supplier: "",
     type: "Buyurtma",
     note: "",
     employee: "Admin 1",
+    paymentStatus: "Qilinmadi",
     items: [],
   });
   const [warehouseSupplierDraft, setWarehouseSupplierDraft] = useState({ name: "", company: "", phone: "" });
+  const [warehouseSupplierDebt, setWarehouseSupplierDebt] = useState(() => {
+    try {
+      const raw = localStorage.getItem("warehouseSupplierDebt");
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
   const [sidebarOpen, setSidebarOpen] = useState(() => localStorage.getItem("sidebarOpen") !== "false");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem("sidebarCollapsed") === "true");
   const [isDesktop, setIsDesktop] = useState(() => window.innerWidth > 980);
@@ -249,6 +268,13 @@ export default function App() {
   }, [mode]);
 
   useEffect(() => {
+    if (!session) return;
+    if (session.role !== "admin" && mode === "admin") {
+      setMode("cashier");
+    }
+  }, [mode, session]);
+
+  useEffect(() => {
     localStorage.setItem("adminSection", adminSection);
   }, [adminSection]);
 
@@ -271,6 +297,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem("settingsView", settingsView);
   }, [settingsView]);
+
+  useEffect(() => {
+    localStorage.setItem("warehouseSupplierDebt", JSON.stringify(warehouseSupplierDebt));
+  }, [warehouseSupplierDebt]);
 
   useEffect(() => {
     localStorage.setItem("labelTemplates", JSON.stringify(labelTemplates));
@@ -694,11 +724,13 @@ export default function App() {
         createdAt,
         orderNo: p.order_no || p.order_number || String(p.id),
         status,
+        paymentStatus: p.payment_status || p.paymentStatus || "To'landi",
         type,
         supplier: p.supplier_name || p.supplier || "-",
         employee: p.created_by || p.employee || "-",
         totalCost,
         totalSell,
+        items: p.items || [],
       };
       }),
       ...warehouseFakeRows,
@@ -709,7 +741,7 @@ export default function App() {
       const ts = new Date(r.createdAt).getTime();
       return ts >= fromTs && ts <= toTs;
     });
-    if (!q) return rows;
+    if (!q) return byDate;
     return byDate.filter((r) =>
       [r.orderNo, r.status, r.type, r.supplier, r.employee, String(r.totalCost), String(r.totalSell)]
         .join(" ")
@@ -720,7 +752,7 @@ export default function App() {
   const warehouseProductOptions = useMemo(() => {
     const q = warehouseProductSearch.trim().toLowerCase();
     const used = new Set(warehouseDraft.items.map((x) => Number(x.productId)));
-    return products.filter((p) => {
+    const rows = products.filter((p) => {
       if (used.has(Number(p.id))) return false;
       if (!q) return true;
       return (
@@ -729,7 +761,47 @@ export default function App() {
         String(p.barcode || "").toLowerCase().includes(q)
       );
     });
+    return rows.sort((a, b) => {
+      const aName = String(a.name || "").toLowerCase();
+      const bName = String(b.name || "").toLowerCase();
+      const aStarts = q && aName.startsWith(q) ? 1 : 0;
+      const bStarts = q && bName.startsWith(q) ? 1 : 0;
+      if (aStarts !== bStarts) return bStarts - aStarts;
+      return aName.localeCompare(bName);
+    });
   }, [products, warehouseProductSearch, warehouseDraft.items]);
+  const warehouseSupplierOptions = useMemo(() => {
+    const q = warehouseSupplierSearch.trim().toLowerCase();
+    if (!q) return warehouseSuppliersList;
+    return warehouseSuppliersList.filter((s) =>
+      `${s.company || s.name} ${s.phone || ""}`.toLowerCase().includes(q)
+    );
+  }, [warehouseSuppliersList, warehouseSupplierSearch]);
+  const lastWarehouseItemPrices = useMemo(() => {
+    const map = new Map();
+    warehouseFakeRows.forEach((row) => {
+      (row.items || []).forEach((it) => {
+        map.set(Number(it.productId), { cost: Number(it.cost || 0), sell: Number(it.sell || 0) });
+      });
+    });
+    return map;
+  }, [warehouseFakeRows]);
+  const warehouseDraftStats = useMemo(() => {
+    const summary = warehouseDraft.items.reduce(
+      (acc, it) => {
+        const qty = Number(it.qty || 0);
+        const cost = Number(it.cost || 0);
+        const sell = Number(it.sell || 0);
+        acc.totalQty += qty;
+        acc.totalCost += qty * cost;
+        acc.totalSell += qty * sell;
+        return acc;
+      },
+      { totalQty: 0, totalCost: 0, totalSell: 0 }
+    );
+    summary.totalProfit = summary.totalSell - summary.totalCost;
+    return summary;
+  }, [warehouseDraft.items]);
   const warehouseTodayStats = useMemo(() => {
     const now = new Date();
     const y = now.getFullYear();
@@ -1179,28 +1251,108 @@ export default function App() {
       type: "Buyurtma",
       note: "",
       employee: "Admin 1",
+      paymentStatus: "Qilinmadi",
       items: [],
     });
     setWarehouseProductSearch("");
+    setWarehouseSupplierSearch("");
+    setWarehouseEditorMode("create");
+    setWarehouseEditingId(null);
     setShowWarehouseCreateModal(true);
   }
 
   function addWarehouseItem(product) {
     if (!product) return;
+    const lastPrice = lastWarehouseItemPrices.get(Number(product.id));
+    const cost = Number(lastPrice?.cost ?? product.buy_price ?? 0);
+    const sell = Number(lastPrice?.sell ?? product.sell_price ?? 0);
+    const margin = cost > 0 ? ((sell - cost) / cost) * 100 : 0;
     setWarehouseDraft((prev) => ({
       ...prev,
-      items: [
-        ...prev.items,
-        {
-          productId: product.id,
-          name: product.name,
-          qty: 1,
-          cost: Number(product.buy_price || 0),
-          sell: Number(product.sell_price || 0),
-        },
-      ],
+      items: prev.items.some((x) => Number(x.productId) === Number(product.id))
+        ? prev.items.map((x) =>
+            Number(x.productId) === Number(product.id) ? { ...x, qty: Number(x.qty || 0) + 1 } : x
+          )
+        : [
+            ...prev.items,
+            {
+              productId: product.id,
+              name: product.name,
+              qty: 1,
+              cost,
+              sell,
+              marginPercent: Number.isFinite(margin) ? Number(margin.toFixed(2)) : 0,
+            },
+          ],
     }));
     setWarehouseProductSearch("");
+  }
+
+  function addWarehouseItemById() {
+    const selected = warehouseProductToAdd
+      ? products.find((p) => Number(p.id) === Number(warehouseProductToAdd))
+      : warehouseProductOptions[0];
+    if (!selected) return;
+    addWarehouseItem(selected);
+    setWarehouseProductToAdd("");
+    setWarehouseProductSearch("");
+  }
+
+  function handleWarehouseProductSearchKeyDown(e) {
+    if (e.key === "Enter" || e.key === "Tab") {
+      if (!warehouseProductSearch.trim()) return;
+      if (!warehouseProductOptions.length) return;
+      e.preventDefault();
+      addWarehouseItem(warehouseProductOptions[0]);
+    }
+  }
+
+  function applyWarehouseQtyIncrement() {
+    const idx = Number(warehouseQtyModal.idx);
+    const inc = Number(warehouseQtyModal.value || 0);
+    if (!Number.isFinite(inc) || inc <= 0 || idx < 0) {
+      setWarehouseQtyModal({ open: false, idx: -1, value: "1" });
+      return;
+    }
+    setWarehouseDraft((prev) => ({
+      ...prev,
+      items: prev.items.map((it, i) => (i === idx ? { ...it, qty: Number(it.qty || 0) + inc } : it)),
+    }));
+    setWarehouseQtyModal({ open: false, idx: -1, value: "1" });
+  }
+
+  function updateWarehouseItemField(idx, field, rawValue) {
+    const num = Number(rawValue || 0);
+    setWarehouseDraft((prev) => ({
+      ...prev,
+      items: prev.items.map((x, i) => {
+        if (i !== idx) return x;
+        const next = { ...x };
+        if (field === "qty") {
+          next.qty = num;
+          return next;
+        }
+        if (field === "cost") {
+          next.cost = num;
+          const margin = Number(next.marginPercent || 0);
+          next.sell = num + (num * margin) / 100;
+          return next;
+        }
+        if (field === "marginPercent") {
+          next.marginPercent = num;
+          const cost = Number(next.cost || 0);
+          next.sell = cost + (cost * num) / 100;
+          return next;
+        }
+        if (field === "sell") {
+          next.sell = num;
+          const cost = Number(next.cost || 0);
+          next.marginPercent = cost > 0 ? ((num - cost) / cost) * 100 : 0;
+          return next;
+        }
+        return next;
+      }),
+    }));
   }
 
   function saveWarehouseSupplier() {
@@ -1216,16 +1368,67 @@ export default function App() {
     setShowWarehouseSupplierModal(false);
   }
 
+  function openWarehouseRow(row) {
+    const editable = String(row.status || "").toLowerCase() === "yangi";
+    setWarehouseEditorMode(editable ? "edit" : "view");
+    setWarehouseEditingId(row.id);
+    setWarehouseDraft({
+      supplier: row.supplier || "",
+      type: row.type || "Buyurtma",
+      note: row.note || "",
+      employee: row.employee || "Admin 1",
+      paymentStatus: row.paymentStatus || row.payment_status || "Qilinmadi",
+      items: (row.items || []).map((it) => {
+        const qty = Number(it.qty || 0);
+        const cost = Number(it.cost || 0);
+        const sell = Number(it.sell || 0);
+        const margin = cost > 0 ? ((sell - cost) / cost) * 100 : 0;
+        return {
+          productId: it.productId,
+          name: it.name,
+          qty,
+          cost,
+          sell,
+          marginPercent: Number.isFinite(margin) ? Number(margin.toFixed(2)) : 0,
+        };
+      }),
+    });
+    setWarehouseSupplierSearch("");
+    setWarehouseProductSearch("");
+    setShowWarehouseCreateModal(true);
+  }
+
+  function confirmWarehouseInvoice() {
+    if (!warehouseDraft.supplier || !warehouseDraft.items.length) return;
+    if (warehouseEditorMode === "create") {
+      createWarehouseInvoice();
+      return;
+    }
+    const totalCost = warehouseDraftStats.totalCost;
+    const totalSell = warehouseDraftStats.totalSell;
+    const totalQty = warehouseDraftStats.totalQty;
+    setWarningModal({
+      open: true,
+      title: "Qayta tekshiring",
+      message: `Mahsulot soni: ${totalQty.toFixed(2)}\nUmumiy tannarx: ${formatMoney(totalCost)}\nUmumiy sotuv: ${formatMoney(totalSell)}\n\nTo'g'rimi?`,
+      confirmMode: true,
+      onConfirm: async () => {
+        createWarehouseInvoice();
+      },
+    });
+  }
+
   function createWarehouseInvoice() {
     if (!warehouseDraft.supplier || !warehouseDraft.items.length) return;
-    const totalCost = warehouseDraft.items.reduce((sum, x) => sum + Number(x.qty || 0) * Number(x.cost || 0), 0);
-    const totalSell = warehouseDraft.items.reduce((sum, x) => sum + Number(x.qty || 0) * Number(x.sell || 0), 0);
+    const totalCost = warehouseDraftStats.totalCost;
+    const totalSell = warehouseDraftStats.totalSell;
     const id = Date.now();
+    const status = warehouseEditorMode === "edit" ? "Faol" : "Yangi";
     const row = {
-      id,
+      id: warehouseEditorMode === "edit" ? warehouseEditingId : id,
       createdAt: new Date().toISOString(),
-      orderNo: `W-${id}`.slice(-7),
-      status: "Faol",
+      orderNo: warehouseEditorMode === "edit" ? `W-${warehouseEditingId}`.slice(-7) : `W-${id}`.slice(-7),
+      status,
       type: warehouseDraft.type,
       supplier: warehouseDraft.supplier,
       employee: warehouseDraft.employee || "Admin 1",
@@ -1233,9 +1436,24 @@ export default function App() {
       totalSell,
       note: warehouseDraft.note,
       items: warehouseDraft.items,
+      paymentStatus: warehouseDraft.paymentStatus || "Qilinmadi",
     };
-    setWarehouseFakeRows((prev) => [row, ...prev]);
+    setWarehouseFakeRows((prev) => {
+      if (warehouseEditorMode === "edit") {
+        return prev.map((x) => (x.id === warehouseEditingId ? row : x));
+      }
+      return [row, ...prev];
+    });
+    if (warehouseDraft.paymentStatus === "Qarz") {
+      setWarehouseSupplierDebt((prev) => ({
+        ...prev,
+        [warehouseDraft.supplier]: Number(prev[warehouseDraft.supplier] || 0) + totalCost,
+      }));
+    }
     setShowWarehouseCreateModal(false);
+    setWarehouseProductToAdd("");
+    setWarehouseEditingId(null);
+    setWarehouseEditorMode("create");
   }
 
   async function checkout() {
@@ -1702,6 +1920,10 @@ export default function App() {
     );
   }
 
+  const warehouseReadOnly = warehouseEditorMode === "view";
+
+  const activeMode = mode === "admin" && session.role === "admin" ? "admin" : "cashier";
+
   return (
     <main className="app">
       <header className="header">
@@ -1738,7 +1960,7 @@ export default function App() {
       {loading && <p>{t.loading}</p>}
       {error && <p className="error">{error}</p>}
 
-      {mode === "cashier" && (
+      {activeMode === "cashier" && (
         <CashierSection
           t={t}
           shiftNumber={shiftNumber}
@@ -1771,7 +1993,7 @@ export default function App() {
         />
       )}
 
-      {mode === "admin" && session.role === "admin" && (
+      {activeMode === "admin" && session.role === "admin" && (
         <AdminShell
           t={t}
           sidebarOpen={sidebarOpen}
@@ -3138,7 +3360,7 @@ export default function App() {
                           />
                           <input type="date" value={warehouseDateFrom} onChange={(e) => setWarehouseDateFrom(e.target.value)} />
                           <input type="date" value={warehouseDateTo} onChange={(e) => setWarehouseDateTo(e.target.value)} />
-                          <button type="button" onClick={openWarehouseCreate}>Yangi nakladnoy</button>
+                          <button type="button" onClick={openWarehouseCreate}>Yangi nakladnoy qabul qilish</button>
                         </div>
                         <p className="muted">Sana: {new Date().toLocaleDateString("uz-UZ")}</p>
                         <div className="table-scroll">
@@ -3148,6 +3370,7 @@ export default function App() {
                                 <th>Buyurtma raqami</th>
                                 <th>Sana</th>
                                 <th>Status</th>
+                                <th>To'lov</th>
                                 <th>Turi</th>
                                 <th>Yetkazib beruvchi</th>
                                 <th>Xodim</th>
@@ -3157,11 +3380,30 @@ export default function App() {
                             </thead>
                             <tbody>
                               {warehouseReceiveRows.map((row) => (
-                                <tr key={row.id}>
+                                <tr key={row.id} onDoubleClick={() => openWarehouseRow(row)} title="Ikki marta bosing">
                                   <td>{row.orderNo}</td>
                                   <td>{new Date(row.createdAt).toLocaleString("uz-UZ")}</td>
-                                  <td>{row.status}</td>
-                                  <td>{row.type}</td>
+                                  <td>
+                                    <span className={`warehouse-pill ${String(row.status).toLowerCase() === "faol" ? "ok" : "new"}`}>
+                                      {row.status}
+                                    </span>
+                                  </td>
+                                  <td>
+                                    <span className={`warehouse-pill ${
+                                      String(row.paymentStatus || "").toLowerCase() === "to'landi"
+                                        ? "ok"
+                                        : String(row.paymentStatus || "").toLowerCase() === "qarz"
+                                          ? "danger"
+                                          : "new"
+                                    }`}>
+                                      {row.paymentStatus || "Qilinmadi"}
+                                    </span>
+                                  </td>
+                                  <td>
+                                    <span className={`warehouse-pill ${String(row.type).toLowerCase() === "qaytarish" ? "danger" : "ok"}`}>
+                                      {row.type}
+                                    </span>
+                                  </td>
                                   <td>{row.supplier}</td>
                                   <td>{row.employee}</td>
                                   <td>{formatMoney(row.totalCost)}</td>
@@ -3170,7 +3412,11 @@ export default function App() {
                               ))}
                               {!warehouseReceiveRows.length && (
                                 <tr>
-                                  <td colSpan="8" className="muted">Ma'lumot topilmadi</td>
+                                  <td colSpan="9">
+                                    <div className="empty-state table">
+                                      <p>Ma'lumot topilmadi</p>
+                                    </div>
+                                  </td>
                                 </tr>
                               )}
                             </tbody>
@@ -3179,93 +3425,167 @@ export default function App() {
                       </div>
 
                       {showWarehouseCreateModal && (
-                        <div className="form-modal-backdrop" onClick={() => setShowWarehouseCreateModal(false)}>
-                          <div className="form-modal card" onClick={(e) => e.stopPropagation()}>
-                            <div className="row">
-                              <h4>Yangi nakladnoy</h4>
-                              <button type="button" onClick={() => setShowWarehouseCreateModal(false)}>X</button>
-                            </div>
-                            <div className="grid">
-                              <label>Yetkazib beruvchi</label>
-                              <div className="row">
-                                <select value={warehouseDraft.supplier} onChange={(e) => setWarehouseDraft((s) => ({ ...s, supplier: e.target.value }))}>
-                                  <option value="">Tanlang</option>
-                                  {warehouseSuppliersList.map((s) => (
-                                    <option key={s.id} value={s.company || s.name}>{s.company || s.name}</option>
-                                  ))}
-                                </select>
-                                <button type="button" onClick={() => setShowWarehouseSupplierModal(true)}>+</button>
-                              </div>
-
-                              <label>Turi</label>
-                              <select value={warehouseDraft.type} onChange={(e) => setWarehouseDraft((s) => ({ ...s, type: e.target.value }))}>
-                                <option value="Buyurtma">Buyurtma</option>
-                                <option value="Qaytarish">Qaytarish</option>
-                              </select>
-
-                              <label>Yaratilgan sana</label>
-                              <input value={new Date().toLocaleString("uz-UZ")} disabled />
-
-                              <label>Izoh</label>
-                              <textarea rows={2} value={warehouseDraft.note} onChange={(e) => setWarehouseDraft((s) => ({ ...s, note: e.target.value }))} />
-
-                              <label>Qidiruv</label>
-                              <input placeholder="Mahsulot qidirish..." value={warehouseProductSearch} onChange={(e) => setWarehouseProductSearch(e.target.value)} />
-                              <div className="warehouse-product-search-list table-scroll">
-                                <table className="product-list-table">
-                                  <thead><tr><th>Artikul</th><th>Nomi</th><th>Narx</th><th></th></tr></thead>
-                                  <tbody>
-                                    {warehouseProductOptions.slice(0, 8).map((p) => (
-                                      <tr key={p.id}>
-                                        <td>{p.artikul || p.id}</td>
-                                        <td>{p.name}</td>
-                                        <td>{formatMoney(p.sell_price)}</td>
-                                        <td><button type="button" onClick={() => addWarehouseItem(p)}>+</button></td>
-                                      </tr>
-                                    ))}
-                                    {!warehouseProductOptions.length && (
-                                      <tr><td colSpan="4" className="muted">Mos mahsulot topilmadi</td></tr>
-                                    )}
-                                  </tbody>
-                                </table>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setShowWarehouseCreateModal(false);
-                                  setProductsView("products");
-                                  setAdminSection("products");
-                                  setEditingProductId(null);
-                                  setProductForm({ name: "", unit: "kg", barcode: "", category: "General", imageName: "", tariff: "", buy_price: 0, sell_price: 0, stock_qty: 0, min_stock: 0 });
-                                  setProductBarcodes([""]);
-                                  setShowProductModal(true);
-                                }}
-                              >
-                                Yangi mahsulot qo'shish
-                              </button>
-                            </div>
-                            <div className="table-scroll">
-                              <table className="product-list-table">
-                                <thead><tr><th>Mahsulot</th><th>Soni</th><th>Tannarxi</th><th>Sotuv narxi</th><th>Jami</th><th></th></tr></thead>
-                                <tbody>
-                                  {warehouseDraft.items.map((it, idx) => (
-                                    <tr key={`${it.productId}-${idx}`}>
-                                      <td>{it.name}</td>
-                                      <td><input type="number" min="0.01" step="0.01" value={it.qty} onChange={(e) => setWarehouseDraft((s) => ({ ...s, items: s.items.map((x, i) => i === idx ? { ...x, qty: Number(e.target.value || 0) } : x) }))} /></td>
-                                      <td><input type="number" min="0" step="0.01" value={it.cost} onChange={(e) => setWarehouseDraft((s) => ({ ...s, items: s.items.map((x, i) => i === idx ? { ...x, cost: Number(e.target.value || 0) } : x) }))} /></td>
-                                      <td><input type="number" min="0" step="0.01" value={it.sell} onChange={(e) => setWarehouseDraft((s) => ({ ...s, items: s.items.map((x, i) => i === idx ? { ...x, sell: Number(e.target.value || 0) } : x) }))} /></td>
-                                      <td>{formatMoney(Number(it.qty || 0) * Number(it.cost || 0))}</td>
-                                      <td><button type="button" onClick={() => setWarehouseDraft((s) => ({ ...s, items: s.items.filter((_, i) => i !== idx) }))}>🗑</button></td>
-                                    </tr>
-                                  ))}
-                                  {!warehouseDraft.items.length && <tr><td colSpan="6" className="muted">Mahsulot qo'shilmagan</td></tr>}
-                                </tbody>
-                              </table>
-                            </div>
-                            <div className="row">
-                              <button type="button" onClick={createWarehouseInvoice}>Saqlash</button>
+                        <div className="card warehouse-create-inline">
+                          <div className="row warehouse-create-header">
+                            <h4>{warehouseEditorMode === "view" ? "Nakladnoy ma'lumotlari" : "Yangi nakladnoy"}</h4>
+                            <div className="row warehouse-header-actions">
+                              {!warehouseReadOnly && (
+                                <button type="button" onClick={confirmWarehouseInvoice} disabled={!warehouseDraft.supplier}>Saqlash</button>
+                              )}
+                              <button type="button" onClick={() => setShowWarehouseCreateModal(false)}>Yopish</button>
                             </div>
                           </div>
+                          <div className="warehouse-create-top-row">
+                            <div className="warehouse-top-field">
+                              <label>Yetkazib beruvchi *</label>
+                              <div className="custom-select-wrap">
+                                <select
+                                  className="custom-select"
+                                  value={warehouseDraft.supplier}
+                                  disabled={warehouseReadOnly}
+                                  onChange={(e) => {
+                                    if (e.target.value === "__add__") {
+                                      setShowWarehouseSupplierModal(true);
+                                      return;
+                                    }
+                                    setWarehouseDraft((s) => ({ ...s, supplier: e.target.value }));
+                                  }}
+                                  required
+                                >
+                                  <option value="">Tanlang</option>
+                                  {warehouseSupplierOptions.map((s) => (
+                                    <option key={s.id} value={s.company || s.name}>{s.company || s.name}</option>
+                                  ))}
+                                  {!warehouseReadOnly && <option value="__add__">+ Qo'shish</option>}
+                                </select>
+                                <span className="custom-select-arrow">▾</span>
+                              </div>
+                            </div>
+                            <div className="warehouse-top-field">
+                              <label>Turi</label>
+                              <div className="custom-select-wrap">
+                                <select className="custom-select" value={warehouseDraft.type} disabled={warehouseReadOnly} onChange={(e) => setWarehouseDraft((s) => ({ ...s, type: e.target.value }))}>
+                                  <option value="Buyurtma">Buyurtma</option>
+                                  <option value="Qaytarish">Qaytarish</option>
+                                </select>
+                                <span className="custom-select-arrow">▾</span>
+                              </div>
+                            </div>
+                            <div className="warehouse-top-field">
+                              <label>Yaratilgan sana</label>
+                              <input className="warehouse-top-input" value={new Date().toLocaleString("uz-UZ")} disabled />
+                            </div>
+                            <div className="warehouse-top-field">
+                              <label>To'lov holati</label>
+                              <div className="custom-select-wrap">
+                                <select className="custom-select" value={warehouseDraft.paymentStatus || "Qilinmadi"} disabled={warehouseReadOnly} onChange={(e) => setWarehouseDraft((s) => ({ ...s, paymentStatus: e.target.value }))}>
+                                  <option value="Qilinmadi">Qilinmadi</option>
+                                  <option value="Qarz">Qarz</option>
+                                  <option value="To'landi">To'landi</option>
+                                </select>
+                                <span className="custom-select-arrow">▾</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="grid warehouse-create-grid">
+                            <label>Izoh</label>
+                            <textarea rows={1} value={warehouseDraft.note} disabled={warehouseReadOnly} onChange={(e) => setWarehouseDraft((s) => ({ ...s, note: e.target.value }))} />
+
+                            <label>Mahsulot qo'shish</label>
+                            <div className="warehouse-add-product-row">
+                              <input
+                                placeholder="Mahsulot qidirish... (Enter/Tab qo'shadi)"
+                                value={warehouseProductSearch}
+                                disabled={warehouseReadOnly}
+                                onChange={(e) => setWarehouseProductSearch(e.target.value)}
+                                onKeyDown={handleWarehouseProductSearchKeyDown}
+                              />
+                              {!warehouseReadOnly && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingProductId(null);
+                                    setProductForm({ name: "", unit: "kg", barcode: "", category: "General", imageName: "", tariff: "", buy_price: 0, sell_price: 0, stock_qty: 0, min_stock: 0 });
+                                    setProductBarcodes([""]);
+                                    setShowProductModal(true);
+                                  }}
+                                >
+                                  Yangi mahsulot qo'shish
+                                </button>
+                              )}
+                            </div>
+                            {!!warehouseProductSearch && !warehouseReadOnly && (
+                              <div className="warehouse-search-hints muted">
+                                {warehouseProductOptions.slice(0, 5).map((p) => (
+                                  <button key={p.id} type="button" className="warehouse-search-item" onClick={() => addWarehouseItem(p)}>
+                                    {(p.artikul || p.id)} - {p.name}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          <div className="warehouse-inline-stats">
+                            <article className="kpi-card warehouse-mini-kpi"><p>Miqdor</p><strong>{warehouseDraftStats.totalQty.toFixed(2)}</strong></article>
+                            <article className="kpi-card warehouse-mini-kpi"><p>Tannarx</p><strong>{formatMoney(warehouseDraftStats.totalCost)}</strong></article>
+                            <article className="kpi-card warehouse-mini-kpi"><p>Sotuv</p><strong>{formatMoney(warehouseDraftStats.totalSell)}</strong></article>
+                            <article className="kpi-card warehouse-mini-kpi"><p>Foyda</p><strong>{formatMoney(warehouseDraftStats.totalProfit)}</strong></article>
+                          </div>
+                          <div className="table-scroll">
+                            <table className="product-list-table">
+                              <thead><tr><th>Mahsulot</th><th>Soni</th><th>Tannarxi</th><th>Marja %</th><th>Sotuv narxi</th><th>Jami</th>{!warehouseReadOnly && <th></th>}</tr></thead>
+                              <tbody>
+                                {warehouseDraft.items.map((it, idx) => (
+                                  <tr key={`${it.productId}-${idx}`}>
+                                    <td>{it.name}</td>
+                                    <td>
+                                      <div className="warehouse-qty-cell">
+                                        <input className="warehouse-num-input" type="number" min="0.01" step="0.01" value={it.qty} disabled={warehouseReadOnly} onChange={(e) => updateWarehouseItemField(idx, "qty", e.target.value)} />
+                                        {!warehouseReadOnly && (
+                                          <button
+                                            type="button"
+                                            className="warehouse-qty-plus-btn"
+                                            onClick={() => setWarehouseQtyModal({ open: true, idx, value: "1" })}
+                                          >
+                                            +
+                                          </button>
+                                        )}
+                                        {!warehouseReadOnly && warehouseQtyModal.open && warehouseQtyModal.idx === idx && (
+                                          <div className="warehouse-qty-inline" onClick={(e) => e.stopPropagation()}>
+                                            <input
+                                              type="number"
+                                              min="0.01"
+                                              step="0.01"
+                                              value={warehouseQtyModal.value}
+                                              onChange={(e) => setWarehouseQtyModal((s) => ({ ...s, value: e.target.value }))}
+                                            />
+                                            <div className="row">
+                                              <button type="button" onClick={applyWarehouseQtyIncrement}>OK</button>
+                                              <button type="button" onClick={() => setWarehouseQtyModal({ open: false, idx: -1, value: "1" })}>X</button>
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </td>
+                                    <td><input className="warehouse-num-input" type="number" min="0" step="0.01" value={it.cost} disabled={warehouseReadOnly} onChange={(e) => updateWarehouseItemField(idx, "cost", e.target.value)} /></td>
+                                    <td><input className="warehouse-num-input warehouse-margin-input" type="number" min="-100" step="0.01" value={it.marginPercent ?? ""} disabled={warehouseReadOnly} onChange={(e) => updateWarehouseItemField(idx, "marginPercent", e.target.value)} /></td>
+                                    <td><input className="warehouse-num-input" type="number" min="0" step="0.01" value={it.sell} disabled={warehouseReadOnly} onChange={(e) => updateWarehouseItemField(idx, "sell", e.target.value)} /></td>
+                                    <td>{formatMoney(Number(it.qty || 0) * Number(it.cost || 0))}</td>
+                                    {!warehouseReadOnly && <td><button type="button" onClick={() => setWarehouseDraft((s) => ({ ...s, items: s.items.filter((_, i) => i !== idx) }))}>🗑</button></td>}
+                                  </tr>
+                                ))}
+                                {!warehouseDraft.items.length && (
+                                  <tr>
+                                    <td colSpan={warehouseReadOnly ? "6" : "7"}>
+                                      <div className="empty-state table">
+                                        <p>Mahsulot qo'shilmagan</p>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                          <p className="muted">Yetkazib beruvchi qarzi: {formatMoney(warehouseSupplierDebt[warehouseDraft.supplier] || 0)}</p>
                         </div>
                       )}
 
@@ -3558,7 +3878,7 @@ export default function App() {
                     type="button"
                     onClick={() => setWarningModal({ open: false, title: "", message: "", confirmMode: false, onConfirm: null })}
                   >
-                    Bekor qilish
+                    Yo'q
                   </button>
                   <button
                     type="button"
@@ -3568,7 +3888,7 @@ export default function App() {
                       if (action) await action();
                     }}
                   >
-                    Tasdiqlash
+                    Ha
                   </button>
                 </>
               ) : (
@@ -3580,6 +3900,31 @@ export default function App() {
                 </button>
               )}
             </div>
+          </div>
+        </div>
+      )}
+      {showProductModal && adminSection === "warehouse" && (
+        <div className="form-modal-backdrop" onClick={() => setShowProductModal(false)}>
+          <div className="form-modal card warehouse-create-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="row">
+              <h4>Yangi mahsulot yaratish</h4>
+              <button type="button" onClick={() => setShowProductModal(false)}>X</button>
+            </div>
+            <form onSubmit={createProduct} className="grid">
+              <label>Mahsulot nomi</label>
+              <input value={productForm.name} onChange={(e) => setProductForm((s) => ({ ...s, name: e.target.value }))} required />
+              <label>Kategoriya</label>
+              <input value={productForm.category} onChange={(e) => setProductForm((s) => ({ ...s, category: e.target.value }))} />
+              <label>Barkod</label>
+              <input value={productForm.barcode} onChange={(e) => setProductForm((s) => ({ ...s, barcode: e.target.value }))} />
+              <label>Tannarx</label>
+              <input type="number" min="0" step="0.01" value={productForm.buy_price} onChange={(e) => setProductForm((s) => ({ ...s, buy_price: e.target.value }))} />
+              <label>Sotuv narxi</label>
+              <input type="number" min="0.01" step="0.01" value={productForm.sell_price} onChange={(e) => setProductForm((s) => ({ ...s, sell_price: e.target.value }))} />
+              <label>Soni</label>
+              <input type="number" step="0.01" value={productForm.stock_qty} onChange={(e) => setProductForm((s) => ({ ...s, stock_qty: e.target.value }))} />
+              <button type="submit">Saqlash</button>
+            </form>
           </div>
         </div>
       )}
