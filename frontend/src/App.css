@@ -1461,6 +1461,324 @@ select {
   text-align: right;
 }
 
+.cashier-fast-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.cashier-scan-input {
+  font-size: 14px;
+  min-height: 36px;
+}
+
+.cashier-product-list {
+  max-height: 260px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+
+.cashier-control-layout {
+  display: grid;
+  grid-template-columns: 108px 204px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  margin-top: 8px;
+}
+
+.cashier-top-actions {
+  display: flex;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.cashier-op-rail {
+  display: grid;
+  gap: 6px;
+  position: sticky;
+  top: 10px;
+}
+
+.cashier-op-btn {
+  min-height: 44px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--card), #f3f4f6 18%);
+  border-color: color-mix(in srgb, var(--border), #9ca3af 26%);
+  letter-spacing: 0.1px;
+}
+
+.cashier-op-btn.small {
+  min-height: 38px;
+}
+
+.cashier-op-btn.danger {
+  background: color-mix(in srgb, #ef4444, var(--card) 30%);
+  border-color: color-mix(in srgb, #ef4444, #fff 18%);
+}
+
+.cashier-keypad-wrap {
+  display: grid;
+  gap: 6px;
+}
+
+.cashier-keypad-modes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.cashier-control-fields {
+  display: grid;
+  gap: 8px;
+}
+
+.qty-keypad {
+  margin: 8px 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.qty-keypad button {
+  min-height: 42px;
+  font-weight: 700;
+  border-radius: 10px;
+}
+
+.pos-left-keypad {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  position: sticky;
+  top: 10px;
+  padding: 6px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--card), #f3f4f6 8%);
+}
+
+.qty-keypad-clear {
+  grid-column: span 3;
+}
+
+.cashier-receipt-card {
+  display: grid;
+  grid-template-rows: auto minmax(160px, 1fr) auto auto;
+  gap: 8px;
+  position: sticky;
+  top: 10px;
+  align-self: start;
+}
+
+.cashier-receipt-table-wrap {
+  max-height: 430px;
+}
+
+.cashier-receipt-table {
+  font-size: 12px;
+}
+
+.cashier-receipt-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: color-mix(in srgb, var(--card), #e5e7eb 22%);
+  font-size: 11px;
+  letter-spacing: 0.2px;
+}
+
+.cashier-receipt-table tbody td {
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.cashier-receipt-table .selected-row {
+  outline: 1px solid color-mix(in srgb, var(--primary), #ffffff 35%);
+  background: color-mix(in srgb, #1e3a8a, var(--card) 65%);
+  color: color-mix(in srgb, #fff, var(--text) 30%);
+}
+
+.cashier-line-editor {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px;
+  display: grid;
+  gap: 8px;
+}
+
+.cashier-payment-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.cashier-pay-btn,
+.cashier-print-btn {
+  min-height: 58px;
+  font-size: 17px;
+  font-weight: 800;
+  border-radius: 14px;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.22);
+}
+
+.cashier-pay-btn {
+  background: color-mix(in srgb, #22c55e, var(--card) 25%);
+  border-color: color-mix(in srgb, #22c55e, #fff 20%);
+}
+
+.cashier-print-btn {
+  background: color-mix(in srgb, #3b82f6, var(--card) 25%);
+  border-color: color-mix(in srgb, #3b82f6, #fff 20%);
+}
+
+.cashier-total-line {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--card), #f3f4f6 10%);
+  border: 1px solid var(--border);
+  font-size: 34px;
+  line-height: 1;
+  text-align: right;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+.cashier-danger-btn {
+  background: color-mix(in srgb, #ef4444, var(--card) 30%);
+  border-color: color-mix(in srgb, #ef4444, #fff 18%);
+}
+
+.cashier-settings-modal {
+  width: min(560px, 94vw);
+  max-height: 80vh;
+  overflow: auto;
+}
+
+.cashier-shell {
+  transition: all 0.22s ease;
+  position: relative;
+  border: 1px solid color-mix(in srgb, #0b1220, var(--border) 55%);
+  border-radius: 14px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--card), #0b1220 12%) 0%,
+    color-mix(in srgb, var(--card), #000000 6%) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 12px 28px rgba(0, 0, 0, 0.35);
+  padding: 10px;
+}
+
+.cashier-mono .card,
+.cashier-mono button,
+.cashier-mono input,
+.cashier-mono select,
+.cashier-mono textarea {
+  filter: grayscale(100%);
+}
+
+.cashier-fullscreen {
+  position: fixed;
+  inset: 6px;
+  z-index: 1150;
+  background: color-mix(in srgb, var(--bg), #000 8%);
+  padding: 10px;
+  overflow: auto;
+}
+
+.cashier-touch button,
+.cashier-touch input,
+.cashier-touch select,
+.cashier-touch textarea {
+  min-height: 44px;
+  font-size: 16px;
+}
+
+.cashier-touch .qty-keypad button {
+  min-height: 52px;
+  font-size: 18px;
+}
+
+.cashier-touch .cashier-pay-btn,
+.cashier-touch .cashier-print-btn {
+  min-height: 58px;
+  font-size: 18px;
+}
+
+.cashier-touch .cashier-total-line {
+  font-size: 38px;
+  min-height: 64px;
+  display: grid;
+  align-items: center;
+}
+
+.abc-keyboard-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 8, 18, 0.38);
+  z-index: 1200;
+  display: flex;
+  align-items: flex-end;
+}
+
+.abc-keyboard {
+  width: 100%;
+  background: color-mix(in srgb, var(--card), #000000 8%);
+  border-top: 1px solid var(--border);
+  padding: 10px;
+}
+
+.abc-grid {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.abc-grid button {
+  min-height: 34px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--primary), #111 55%) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--primary), #111 55%);
+  border-radius: 999px;
+}
+
+@media (max-width: 980px) {
+  .cashier-control-layout {
+    grid-template-columns: 1fr;
+  }
+  .pos-left-keypad {
+    position: static;
+  }
+  .cashier-op-rail {
+    position: static;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .cashier-receipt-card {
+    position: static;
+  }
+}
+
 .warehouse-pill {
   display: inline-flex;
   align-items: center;

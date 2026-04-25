@@ -1014,18 +1014,49 @@ export default function App() {
     const qty = returnMode ? -Math.abs(qtyBase) : Math.abs(qtyBase);
     const discount = Number(saleForm.discount || 0);
     const markup = Number(saleForm.markup || 0);
+    if (discount < 0 || discount > 100) {
+      setError("Skidka 0% dan 100% gacha bo'lishi kerak");
+      return;
+    }
     const unitPrice = product.sell_price * (1 - discount / 100) * (1 + markup / 100);
+    if (unitPrice < Number(product.buy_price || 0)) {
+      setError("Narx tannarxdan past bo'lishi mumkin emas");
+      return;
+    }
     const lineTotal = Number((qty * unitPrice).toFixed(2));
-    setCart((prev) => [
-      ...prev,
-      {
-        id: product.id,
-        name: product.name,
-        qty,
-        unitPrice: Number(unitPrice.toFixed(2)),
-        lineTotal,
-      },
-    ]);
+    setCart((prev) => {
+      const normalizedUnitPrice = Number(unitPrice.toFixed(2));
+      const idx = prev.findIndex(
+        (x) =>
+          Number(x.id) === Number(product.id) &&
+          Number(x.unitPrice) === normalizedUnitPrice &&
+          Math.sign(Number(x.qty || 0)) === Math.sign(qty)
+      );
+      if (idx < 0) {
+        return [
+          ...prev,
+          {
+            id: product.id,
+            name: product.name,
+            qty,
+            baseUnitPrice: Number(product.sell_price || 0),
+            unitPrice: normalizedUnitPrice,
+            lineTotal,
+          },
+        ];
+      }
+      const next = [...prev];
+      const current = next[idx];
+      const nextQty = Number(current.qty || 0) + qty;
+      next[idx] = {
+        ...current,
+        baseUnitPrice: Number(current.baseUnitPrice ?? product.sell_price ?? normalizedUnitPrice),
+        qty: nextQty,
+        lineTotal: Number((nextQty * normalizedUnitPrice).toFixed(2)),
+      };
+      return next;
+    });
+    setError("");
   }
 
   function addQuickTile() {
@@ -1990,6 +2021,7 @@ export default function App() {
           setCart={setCart}
           checkout={checkout}
           printReceipt={printReceipt}
+          setError={setError}
         />
       )}
 
